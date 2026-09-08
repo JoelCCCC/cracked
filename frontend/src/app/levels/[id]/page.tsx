@@ -9,6 +9,7 @@ import { LevelDetail, Challenge, SubmitResult } from "@/types";
 import { MarkdownRenderer } from "@/components/MarkdownRenderer";
 import { CodeEditor } from "@/components/CodeEditor";
 import { CelebrationModal, triggerConfetti } from "@/components/CelebrationModal";
+import { ConceptVisualizer } from "@/components/visualizers/ConceptVisualizer";
 import {
   ArrowLeft,
   ArrowRight,
@@ -41,6 +42,8 @@ export default function LevelArenaPage() {
   // Lessons accordion open state
   const [showLessons, setShowLessons] = useState(true);
   const [activeLessonIdx, setActiveLessonIdx] = useState(0);
+  const [showVisualizer, setShowVisualizer] = useState(false);
+  const [showVisualizerModal, setShowVisualizerModal] = useState(false);
 
   // Hint open state
   const [showHint, setShowHint] = useState(false);
@@ -266,6 +269,16 @@ export default function LevelArenaPage() {
             <span>+{level.xp_reward} XP Level Bonus</span>
           </div>
 
+          <button
+            type="button"
+            onClick={() => setShowVisualizerModal(true)}
+            title="Play interactive visual animation for this concept"
+            className="flex items-center gap-1.5 px-3 py-1 rounded-lg border border-purple-500/40 bg-purple-950/60 hover:bg-purple-900/80 text-purple-200 text-xs font-mono font-bold transition cursor-pointer shadow-sm shadow-purple-500/20"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+            <span>Visual Animation</span>
+          </button>
+
           {solvedCount > 0 && (
             <button
               type="button"
@@ -339,6 +352,36 @@ export default function LevelArenaPage() {
                       <MarkdownRenderer
                         content={level.lessons[activeLessonIdx].body}
                       />
+                    </div>
+
+                    {/* Interactive Concept Visualizer Button under lesson */}
+                    <div className="mt-4 pt-3 border-t border-slate-800/80">
+                      <button
+                        type="button"
+                        onClick={() => setShowVisualizer(!showVisualizer)}
+                        className={`w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold font-mono transition-all cursor-pointer shadow-lg ${
+                          showVisualizer
+                            ? "bg-purple-600 text-white border border-purple-400 ring-2 ring-purple-500/30"
+                            : "bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white shadow-purple-500/20 hover:shadow-purple-500/40"
+                        }`}
+                      >
+                        <Sparkles className="w-4 h-4 text-cyan-300" />
+                        <span>
+                          {showVisualizer
+                            ? "Hide Concept Animation"
+                            : "✨ Visualize Concept (Play Interactive Animation)"}
+                        </span>
+                      </button>
+
+                      {showVisualizer && (
+                        <div className="mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                          <ConceptVisualizer
+                            trackSlug={level.track.slug}
+                            levelIndex={level.index}
+                            lessonTitle={level.lessons[activeLessonIdx].title}
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -752,6 +795,17 @@ export default function LevelArenaPage() {
           Boolean(level.next_level_id)
         }
       />
+
+      {/* Interactive Concept Visualizer Modal */}
+      {showVisualizerModal && (
+        <ConceptVisualizer
+          trackSlug={level.track.slug}
+          levelIndex={level.index}
+          lessonTitle={level.lessons[activeLessonIdx]?.title}
+          isModal={true}
+          onClose={() => setShowVisualizerModal(false)}
+        />
+      )}
     </div>
   );
 }
