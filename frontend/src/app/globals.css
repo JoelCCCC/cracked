@@ -1,0 +1,128 @@
+@import "tailwindcss";
+
+:root {
+  --background: #090a10;
+  --foreground: #f1f5f9;
+  --surface: #11131f;
+  --surface-border: #1e2238;
+  --accent-purple: #7c5cff;
+  --accent-cyan: #00e5ff;
+  --accent-emerald: #10b981;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0d0f1a;
+}
+::-webkit-scrollbar-thumb {
+  background: #252a42;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #373e63;
+}
+
+/* Code styling */
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+/* Glow effects */
+.glow-purple {
+  box-shadow: 0 0 35px -5px rgba(124, 92, 255, 0.35);
+}
+.glow-cyan {
+  box-shadow: 0 0 35px -5px rgba(0, 229, 255, 0.3);
+}
+.glow-emerald {
+  box-shadow: 0 0 35px -5px rgba(16, 185, 129, 0.3);
+}
+
+/* Grid pattern */
+.bg-grid-pattern {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+/* Markdown styling in lesson / prompt */
+.prose-dark {
+  color: #cbd5e1;
+}
+.prose-dark h1, .prose-dark h2, .prose-dark h3, .prose-dark h4 {
+  color: #f8fafc;
+  font-weight: 700;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.prose-dark p {
+  margin-bottom: 0.75rem;
+  line-height: 1.65;
+}
+.prose-dark ul, .prose-dark ol {
+  margin-left: 1.25rem;
+  margin-bottom: 0.75rem;
+  list-style-type: disc;
+}
+.prose-dark code:not(pre code) {
+  background: #1e2238;
+  color: #38bdf8;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.25rem;
+  font-size: 0.875em;
+}
+.prose-dark pre {
+  background: #0f111e;
+  border: 1px solid #1e2238;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 0.75rem 0;
+  overflow-x: auto;
+}
+.prose-dark pre code {
+  color: #e2e8f0;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+.prose-dark table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.875rem;
+}
+.prose-dark th, .prose-dark td {
+  border: 1px solid #272c49;
+  padding: 0.6rem 0.85rem;
+  text-align: left;
+}
+.prose-dark th {
+  background: #16192a;
+  color: #f1f5f9;
+  font-weight: 600;
+}
+.prose-dark tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+.prose-dark strong {
+  color: #f8fafc;
+}
+.prose-dark blockquote {
+  border-left: 3px solid #7c5cff;
+  padding-left: 1rem;
+  font-style: italic;
+  color: #94a3b8;
+  margin: 0.75rem 0;
+}

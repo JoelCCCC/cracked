@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: cracked-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: cracked
+      POSTGRES_USER: cracked
+      POSTGRES_PASSWORD: cracked
+    ports:
+      - "5434:5432"
+    volumes:
+      - cracked-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cracked -d cracked"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  cracked-pgdata:
