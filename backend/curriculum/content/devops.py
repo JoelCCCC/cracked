@@ -1,343 +1,633 @@
 TRACK = {
     "slug": "devops",
     "name": "DevOps & Infrastructure",
-    "tagline": "Ship on a Friday and sleep fine.",
+    "tagline": "How software runs in production: Linux, Git, Docker, CI/CD, and Observability.",
     "description": (
-        "Containers, CI/CD, deployment strategies, observability and incident response — "
-        "the operational half of being a senior engineer."
+        "Start from absolute zero. Learn the Linux terminal, Git workflows, Docker containerization, "
+        "automated CI/CD deployment pipelines, and production observability."
     ),
-    "icon": "⚙",
-    "accent": "#f2c744",
+    "icon": "▲",
+    "accent": "#52c41a",
     "order": 5,
-    "required_xp": 1900,
+    "required_xp": 1100,
     "levels": [
+        # =========================================================================
+        # LEVEL 1: LINUX & TERMINAL FOUNDATIONS
+        # =========================================================================
         {
             "index": 1,
-            "title": "Containers and reproducible builds",
-            "summary": "Layers, caching, small images, and the twelve-factor rules that matter.",
-            "xp_reward": 100,
+            "title": "Linux & Terminal Foundations from Zero",
+            "summary": "Shell navigation, streams (stdin, stdout, stderr), redirection, pipes, and exit codes.",
+            "xp_reward": 85,
             "lessons": [
                 {
-                    "title": "A Dockerfile that builds in seconds",
-                    "minutes": 7,
-                    "body": """Every instruction is a cached layer. Change a layer and **everything after it rebuilds**. So order from least to most volatile.
+                    "title": "The Shell & The Linux Filesystem",
+                    "minutes": 6,
+                    "body": """Every production cloud server (AWS, GCP, DigitalOcean) runs Linux without a graphical desktop. The terminal is your command center.
 
-```dockerfile
-# 1. build stage
-FROM python:3.12-slim AS build
-WORKDIR /app
-COPY requirements.txt .                 # deps change rarely...
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .                                # ...source changes constantly
-
-# 2. runtime stage: no compilers, no build cache
-FROM python:3.12-slim
-WORKDIR /app
-RUN useradd --create-home app
-COPY --from=build /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
-COPY --from=build /app /app
-USER app
-CMD ["gunicorn", "config.wsgi", "-b", "0.0.0.0:8000"]
-```
-
-Four things that do most of the work:
-
-1. **Copy the manifest before the source.** Otherwise every one-line change reinstalls all dependencies.
-2. **Multi-stage.** Build tools never reach the runtime image — smaller, and a smaller attack surface.
-3. **Non-root `USER`.** A container escape starting as root is a much worse day.
-4. **`.dockerignore`.** Keep `.git`, `node_modules` and `.env` out of the build context.
-
-Pin base images by digest for anything you actually care about reproducing.""",
+### Core Navigation Commands
+- `pwd` (**P**rint **W**orking **D**irectory): Where am I right now?
+- `ls -la`: List all files, including hidden dotfiles (`.env`, `.git`), with permissions and sizes.
+- `cd /var/log`: Change directory. `cd ..` goes up one level; `cd ~` goes to your home folder.
+- `cat app.log`: Print the entire file to the screen.
+- `tail -n 50 -f app.log`: Follow the last 50 lines in real-time as new logs are written.
+- `grep "ERROR" app.log`: Search for lines containing `"ERROR"`.""",
                 },
                 {
-                    "title": "Config, state, and the twelve factors that matter",
+                    "title": "Streams, Redirection & Exit Codes",
                     "minutes": 6,
-                    "body": """Three rules cover most of it:
+                    "body": """In Unix, **everything is a file**, and processes communicate via three standard streams:
+1. `stdin` (0): Standard Input (keyboard or piped data)
+2. `stdout` (1): Standard Output (normal output messages)
+3. `stderr` (2): Standard Error (error messages and diagnostic logs)
 
-**Config in the environment.** Same image in dev, staging and prod; only env vars differ. Secrets come from a secret manager at runtime — never baked into the image, never in git. If a secret ever lands in a commit, rotate it; deleting the commit is not a fix, the object is still in every clone.
+### Stream Redirection
+- `command > output.txt`: Overwrites `output.txt` with stdout.
+- `command >> output.txt`: Appends stdout to `output.txt`.
+- `command 2>&1`: Redirects stderr into stdout.
 
-**Processes are stateless and disposable.** Anything on local disk vanishes on restart. Sessions go in Redis or a cookie; uploads go to object storage. The process must handle `SIGTERM` by draining and exiting quickly, because the orchestrator will kill it.
-
-**Logs are an event stream on stdout.** The process should not know about log files or rotation — the platform collects. Log **structured JSON** with a request id so you can correlate across services:
-
-```json
-{"level":"info","msg":"order.created","request_id":"a1b2","order_id":42,"duration_ms":38}
+### The Unix Pipe (`|`)
+Connect the stdout of one command directly into the stdin of another:
+```bash
+cat access.log | grep "500" | wc -l
+# Reads log -> filters 500 errors -> counts matching lines
 ```
 
-Grepping unstructured strings works at one service. It stops working at ten.""",
+### Exit Codes: The Language of Success
+When a command finishes, it returns an integer **exit code**:
+- `0`: **Success** (no error).
+- Non-zero (`1`, `2`, `127`): **Failure / Error**.
+In bash, inspect the last command's exit code with `echo $?`.""",
                 },
             ],
             "challenges": [
                 {
                     "kind": "mcq",
-                    "difficulty": "medium",
-                    "title": "Why is every build slow",
-                    "prompt": "A Dockerfile does `COPY . .` and then `RUN pip install -r requirements.txt`. Every one-line source change triggers a full dependency reinstall.\n\nWhy?",
-                    "hint": "Layers cache in order.",
-                    "explanation": "`COPY . .` invalidates its layer on any source change, and every later layer — including the install — is rebuilt. Copying `requirements.txt` first keeps the install layer cached until dependencies actually change.",
-                    "xp": 30,
-                    "config": {
-                        "options": [
-                            "pip has no cache inside containers",
-                            "The COPY invalidates the cache for every layer after it",
-                            "Docker rebuilds all layers whenever the Dockerfile is read",
-                            "The base image is re-pulled each build",
-                        ]
-                    },
-                    "solution": {"answer": 1},
+                    "difficulty": "easy",
+                    "title": "Unix Exit Code for Success",
+                    "prompt": "What numeric exit code does a Unix command return when it finishes successfully without any errors?",
+                    "hint": "Zero or non-zero?",
+                    "explanation": "Exit code 0 universally indicates success in Unix/Linux. Any non-zero code indicates an error.",
+                    "xp": 20,
+                    "config": {"options": ["0", "1", "200", "-1"]},
+                    "solution": {"answer": 0},
                 },
                 {
                     "kind": "multi",
-                    "difficulty": "medium",
-                    "title": "Never in the image",
-                    "prompt": "Which of these should **not** be baked into a container image?",
-                    "hint": "Anything secret, or anything that differs per environment.",
-                    "explanation": "Secrets and per-environment config are injected at runtime; the `.git` directory is pure bloat and leaks history. Application source is exactly what the image is for.",
-                    "xp": 30,
+                    "difficulty": "easy",
+                    "title": "Standard Unix Streams",
+                    "prompt": "Which of the following are the standard I/O streams present in every Linux process?",
+                    "hint": "File descriptors 0, 1, and 2.",
+                    "explanation": "Standard input (stdin, 0), standard output (stdout, 1), and standard error (stderr, 2).",
+                    "xp": 25,
                     "config": {
                         "options": [
-                            "Database passwords",
-                            "The production API hostname",
-                            "The application source code",
-                            "The .git directory",
+                            "stdin (standard input)",
+                            "stdout (standard output)",
+                            "stderr (standard error)",
+                            "stdlog (standard logging)",
                         ]
                     },
-                    "solution": {"answers": [0, 1, 3]},
+                    "solution": {"answers": [0, 1, 2]},
                 },
                 {
                     "kind": "short",
                     "difficulty": "easy",
-                    "title": "The polite shutdown signal",
-                    "prompt": "Which POSIX signal does an orchestrator send first to ask a container to shut down gracefully, before it eventually sends SIGKILL?",
-                    "hint": "It is catchable; SIGKILL is not.",
-                    "explanation": "`SIGTERM`. Trap it, stop accepting new work, finish in-flight requests, exit. Ignore it and you get SIGKILLed after the grace period, dropping live requests on every deploy.",
+                    "title": "Command Pipeline Operator",
+                    "prompt": "What single character is used in Linux shells to pipe the output of one command into the input of another?",
+                    "hint": "The vertical bar symbol.",
+                    "explanation": "The pipe operator `|` connects stdout of the left command to stdin of the right command.",
                     "xp": 20,
-                    "config": {"placeholder": "a signal name"},
-                    "solution": {"regex": True, "accept": [r"sig\s*term", r"15", r"sigterm\s*\(?15\)?"]},
+                    "config": {"placeholder": "e.g. |"},
+                    "solution": {"regex": True, "accept": [r"^\|$"]},
                 },
                 {
                     "kind": "code",
                     "difficulty": "medium",
-                    "title": "Which layers rebuild",
-                    "prompt": "Write `layers_rebuilt(instructions, changed_step)` returning the number of layers that must rebuild.\n\n`instructions` is a list of Dockerfile instruction strings. `changed_step` is the 0-based index of the first invalidated layer, or `-1` if nothing changed.\n\nEverything from `changed_step` onward rebuilds.\n\n```\nlayers_rebuilt(['FROM x','COPY req','RUN pip','COPY .'], 1) -> 3\nlayers_rebuilt(['FROM x','COPY req'], -1) -> 0\n```",
-                    "hint": "It is `len - changed_step`, with guards for -1 and out-of-range.",
-                    "explanation": "Cache invalidation cascades forward and never backward — which is the whole reason to order a Dockerfile from stable to volatile.",
-                    "xp": 40,
-                    "config": {"language": "python", "starter": "def layers_rebuilt(instructions, changed_step):\n    ...\n"},
+                    "title": "Filter Log Lines by Level",
+                    "prompt": "Write `filter_logs(log_lines, target_level)` that simulates `grep` filtering on log lines.\nEach log line has the format `\"[LEVEL] message\"` (e.g. `\"[ERROR] Database connection lost\"`).\n\nReturn a list of messages (without the `[LEVEL]` prefix and leading whitespace) matching `target_level` (case-insensitive).\n\n```python\nlogs = [\n    \"[INFO] Server started\",\n    \"[ERROR] Connection timed out\",\n    \"[INFO] User logged in\",\n    \"[ERROR] Out of memory\"\n]\nfilter_logs(logs, \"ERROR\")\n# -> [\"Connection timed out\", \"Out of memory\"]\n```",
+                    "hint": "Check if line starts with `f\"[{target_level.upper()}]\"` and strip the prefix.",
+                    "explanation": "Filtering log messages by severity level is a foundational CLI and debugging pattern.",
+                    "xp": 35,
+                    "config": {
+                        "language": "python",
+                        "starter": "def filter_logs(log_lines, target_level):\n    # Return list of message strings matching target_level\n    ...\n",
+                    },
                     "solution": {
-                        "entrypoint": "layers_rebuilt",
+                        "entrypoint": "filter_logs",
                         "cases": [
-                            {"args": [["FROM x", "COPY req", "RUN pip", "COPY ."], 1], "expect": 3},
-                            {"args": [["FROM x", "COPY req"], -1], "expect": 0},
-                            {"args": [["FROM x"], 0], "expect": 1},
-                            {"args": [[], -1], "expect": 0},
-                            {"args": [["a", "b", "c"], 5], "expect": 0, "hidden": True},
+                            {
+                                "args": [
+                                    ["[INFO] Server started", "[ERROR] Timeout", "[ERROR] Disk full"],
+                                    "ERROR",
+                                ],
+                                "expect": ["Timeout", "Disk full"],
+                            },
+                            {
+                                "args": [["[INFO] Ok"], "WARN"],
+                                "expect": [],
+                            },
+                            {
+                                "args": [
+                                    ["[warn] High CPU", "[WARN] High Memory"],
+                                    "warn",
+                                ],
+                                "expect": ["High CPU", "High Memory"],
+                                "hidden": True,
+                            },
                         ],
                     },
                 },
             ],
         },
+
+        # =========================================================================
+        # LEVEL 2: GIT & VERSION CONTROL
+        # =========================================================================
         {
             "index": 2,
-            "title": "CI/CD and safe deploys",
-            "summary": "Pipelines, blue-green vs canary, migrations that don't break rollback.",
-            "xp_reward": 110,
+            "title": "Git Version Control from Zero",
+            "summary": "Working tree, staging area, commits, branching, merging, and resolving conflicts.",
+            "xp_reward": 95,
             "lessons": [
                 {
-                    "title": "Deployment strategies",
-                    "minutes": 7,
-                    "body": """| Strategy | How | Rollback | Cost |
-| --- | --- | --- | --- |
-| **Recreate** | stop old, start new | redeploy old | downtime |
-| **Rolling** | replace instances gradually | roll back gradually | two versions live at once |
-| **Blue-green** | full second environment, flip the router | instant flip back | 2x infrastructure |
-| **Canary** | 1% → 10% → 100%, watching metrics | drop the canary | needs good metrics |
-
-Rolling and canary both mean **two versions of your code run simultaneously**. That is the constraint that shapes everything else — most importantly your database migrations.
-
-**Feature flags** separate *deploy* from *release*. Ship the code dark, turn it on for 1% of users, turn it off in seconds without a deploy. A flag you never delete is technical debt, so put an expiry on it when you create it.""",
-                },
-                {
-                    "title": "Expand / contract migrations",
-                    "minutes": 7,
-                    "body": """Renaming a column in one migration breaks every old process still running. Do it in phases, each independently deployable and rollback-safe:
-
-1. **Expand** — add the new column, nullable. Deploy. Nothing reads it yet.
-2. **Backfill** — copy data in batches. Never one `UPDATE` over 50M rows; that holds locks and bloats WAL.
-3. **Dual-write** — application writes both columns, reads the old one. Deploy.
-4. **Flip reads** — read the new column. Deploy. Now the old one is unused.
-5. **Contract** — drop the old column, after you're sure you won't roll back.
-
-Postgres specifics worth memorising:
-
-- `ADD COLUMN` with a non-volatile default is fast in modern Postgres; adding a `NOT NULL` to an existing column requires a validated check or a full scan.
-- `CREATE INDEX CONCURRENTLY` avoids locking writes — and cannot run inside a transaction, so it needs `atomic = False` in a Django migration.
-- Set a short `lock_timeout` on migrations. A DDL statement waiting on a lock queues *every* subsequent query behind it and takes the site down.""",
-                },
-            ],
-            "challenges": [
-                {
-                    "kind": "mcq",
-                    "difficulty": "hard",
-                    "title": "Rename without downtime",
-                    "prompt": "You must rename `users.name` to `users.full_name` on a service that deploys with a rolling update.\n\nWhat is the safe first step?",
-                    "hint": "During a rolling deploy, old and new code both run.",
-                    "explanation": "Expand first: add the new column so old code (which knows nothing about it) keeps working. A single rename breaks every old instance the moment it lands.",
-                    "xp": 40,
-                    "config": {
-                        "options": [
-                            "ALTER TABLE users RENAME COLUMN name TO full_name",
-                            "Add full_name as a new nullable column and deploy",
-                            "Take the site down for five minutes",
-                            "Drop name and recreate it under the new name",
-                        ]
-                    },
-                    "solution": {"answer": 1},
-                },
-                {
-                    "kind": "mcq",
-                    "difficulty": "medium",
-                    "title": "Index on a live table",
-                    "prompt": "You need a new index on a 200M-row Postgres table that is taking writes right now. Which is safe?",
-                    "hint": "One form of CREATE INDEX does not block writes.",
-                    "explanation": "`CREATE INDEX CONCURRENTLY` builds without an exclusive lock (two passes, slower, cannot run in a transaction). A plain `CREATE INDEX` blocks all writes for the duration.",
-                    "xp": 30,
-                    "config": {
-                        "options": [
-                            "CREATE INDEX — it is fast enough",
-                            "CREATE INDEX CONCURRENTLY",
-                            "Add it inside the same transaction as the data migration",
-                            "There is no safe way; take a maintenance window",
-                        ]
-                    },
-                    "solution": {"answer": 1},
-                },
-                {
-                    "kind": "short",
-                    "difficulty": "medium",
-                    "title": "Deploy is not release",
-                    "prompt": "What mechanism lets you ship code to production while keeping it switched off, then enable it for 1% of users without another deploy? (Two words.)",
-                    "hint": "Also called a toggle.",
-                    "explanation": "Feature flags decouple deploy from release, which is what makes canarying, instant kill-switches and trunk-based development practical.",
-                    "xp": 25,
-                    "config": {"placeholder": "two words"},
-                    "solution": {"regex": True, "accept": [r"feature\s+(flags?|toggles?|switch(es)?)", r"flags?", r"toggles?"]},
-                },
-                {
-                    "kind": "code",
-                    "difficulty": "medium",
-                    "title": "Canary rollout schedule",
-                    "prompt": "Write `rollout(total_instances, steps)` returning the cumulative instance count at each canary step.\n\n`steps` is a list of percentages (e.g. `[1, 10, 50, 100]`). For each, return `ceil(total * pct / 100)`, and never decrease or exceed `total`.\n\n```\nrollout(10, [1, 10, 50, 100]) -> [1, 1, 5, 10]\n```",
-                    "hint": "`-(-a // b)` is integer ceiling division. Clamp with max/min against the running value.",
-                    "explanation": "Rounding up matters: `ceil` guarantees a 1% canary on a 10-instance fleet is still one real instance rather than zero, which would make the canary a no-op.",
-                    "xp": 45,
-                    "config": {"language": "python", "starter": "import math\n\ndef rollout(total_instances, steps):\n    ...\n"},
-                    "solution": {
-                        "entrypoint": "rollout",
-                        "cases": [
-                            {"args": [10, [1, 10, 50, 100]], "expect": [1, 1, 5, 10]},
-                            {"args": [100, [1, 25, 100]], "expect": [1, 25, 100]},
-                            {"args": [3, [50, 100]], "expect": [2, 3]},
-                            {"args": [5, []], "expect": []},
-                            {"args": [0, [50]], "expect": [0]},
-                            {"args": [10, [100, 50]], "expect": [10, 10], "hidden": True},
-                        ],
-                    },
-                },
-            ],
-        },
-        {
-            "index": 3,
-            "title": "Observability and incidents",
-            "summary": "Metrics vs logs vs traces, SLOs, and what to do at 3am.",
-            "xp_reward": 120,
-            "lessons": [
-                {
-                    "title": "The three signals",
-                    "minutes": 7,
-                    "body": """- **Metrics** — cheap numeric time series. Answer *is something wrong?* Alert on these.
-- **Logs** — discrete events with detail. Answer *what exactly happened to this request?*
-- **Traces** — one request's path across services with timing per span. Answer *where did the time go?*
-
-**Percentiles, not averages.** An average latency of 120 ms hides a p99 of 4 s. The average is the experience of nobody; p99 is the experience of your loudest users, and at scale, of a lot of them.
-
-The four **golden signals** for any service: latency, traffic, errors, saturation.
-
-**SLO and error budget.** Pick a target — "99.9% of requests succeed in 30 days". That allows ~43 minutes of failure per month. That budget is a *decision tool*: budget left → ship faster; budget burnt → freeze features and fix reliability. It ends the argument about whether to prioritise stability by turning it into arithmetic.
-
-Alert on **symptoms users feel** (error rate, latency, budget burn rate), not on causes (CPU at 90%). A CPU alert at 3am that no user noticed is how on-call rotations die.""",
-                },
-                {
-                    "title": "Incident response, briefly",
+                    "title": "The Three Trees of Git",
                     "minutes": 6,
-                    "body": """**Mitigate first, diagnose second.** Roll back, flip the flag, shed load, fail over. The cause can be found once users are served again — restore service, then investigate.
+                    "body": """Git is not just a backup tool; it is a content-addressable directed acyclic graph (DAG) of project snapshots.
 
-Roles, even for a two-person team: an **incident commander** (decides, does not debug), a **communicator** (updates the status page), and **hands on keyboard**. The commander's job is to stop five people from independently poking production.
+Git tracks your files across three distinct states:
+1. **Working Directory**: The sandbox where you actively edit files on your filesystem.
+2. **Staging Area (Index)**: The draft area where you prepare the exact changes for the next snapshot (`git add filename`).
+3. **Repository History (HEAD)**: The permanent, immutable database of commits (`git commit -m "feat: add login"`).
 
-Afterwards, write a **blameless postmortem**: timeline, impact, contributing factors, and action items with owners and dates. Blameless is not politeness — the moment naming a person is the outcome, people stop reporting near-misses and you lose your best early-warning signal.
+```bash
+# Typical daily cycle:
+git status            # What changed?
+git diff              # View unstaged line changes
+git add src/auth.py   # Stage specific file
+git commit -m "..."   # Record permanent snapshot
+```""",
+                },
+                {
+                    "title": "Branches, Merging & Conflicts",
+                    "minutes": 6,
+                    "body": """A **branch** in Git is simply a movable pointer to a commit. Creating a branch is virtually instantaneous:
 
-The question that matters is never "who ran the command" but "why was it possible for one command to do this, and why did it take 40 minutes to notice".""",
+```bash
+git switch -c feature/user-profile   # Create and switch to new branch
+# ... write code and commit ...
+git switch main                      # Return to main branch
+git merge feature/user-profile       # Merge changes into main
+```
+
+### What Causes a Merge Conflict?
+When two branches modify the **exact same lines of the same file** in different ways, Git stops and asks the human to choose:
+
+```git
+<<<<<<< HEAD (current main)
+const timeoutMs = 5000;
+=======
+const timeoutMs = 10000;
+>>>>>>> feature/user-profile
+```
+To resolve: edit the file to keep the desired code, remove the marker lines (`<<<<<<<`, `=======`, `>>>>>>>`), and run `git add` + `git commit`.""",
                 },
             ],
             "challenges": [
                 {
                     "kind": "mcq",
-                    "difficulty": "medium",
-                    "title": "Where did the time go",
-                    "prompt": "One endpoint is slow, but only sometimes, and it calls four internal services. Which signal identifies the slow hop fastest?",
-                    "hint": "Per-request, per-service timing.",
-                    "explanation": "A distributed trace breaks one request into spans with durations, so the slow service is visible immediately. Metrics tell you *that* it is slow; logs make you correlate by hand.",
-                    "xp": 30,
-                    "config": {"options": ["Metrics", "Logs", "Distributed traces", "Core dumps"]},
-                    "solution": {"answer": 2},
-                },
-                {
-                    "kind": "mcq",
-                    "difficulty": "medium",
-                    "title": "First move in an incident",
-                    "prompt": "Checkout errors jump to 30% four minutes after a deploy. What do you do first?",
-                    "hint": "Users are failing right now.",
-                    "explanation": "Mitigate first — roll back. The deploy is the obvious correlate, restoring service is free of risk to the investigation, and the artefacts (logs, traces, the bad build) are all still there afterwards.",
-                    "xp": 30,
+                    "difficulty": "easy",
+                    "title": "Moving Files to Staging Area",
+                    "prompt": "Which Git command moves modified files from your working directory into the staging area (index) in preparation for a commit?",
+                    "hint": "git ...",
+                    "explanation": "`git add` stages changes for the next commit.",
+                    "xp": 20,
                     "config": {
                         "options": [
-                            "Roll back the deploy, then investigate",
-                            "Read the diff until you find the bug",
-                            "Scale up the service in case it is load",
-                            "Wait ten minutes to see if it recovers",
+                            "git add",
+                            "git commit",
+                            "git push",
+                            "git checkout",
                         ]
                     },
                     "solution": {"answer": 0},
                 },
                 {
                     "kind": "short",
+                    "difficulty": "easy",
+                    "title": "Current Commit Reference",
+                    "prompt": "What special four-letter keyword in Git points to the current active branch or commit checkout?",
+                    "hint": "All uppercase.",
+                    "explanation": "HEAD points to the currently checked-out commit or branch tip.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. HEAD"},
+                    "solution": {"regex": True, "accept": [r"^HEAD$"]},
+                },
+                {
+                    "kind": "multi",
                     "difficulty": "medium",
-                    "title": "How much can you break",
-                    "prompt": "What do you call the amount of unreliability an SLO permits — the thing you spend on shipping risk and stop spending when it runs out? (Two words.)",
-                    "hint": "SLO of 99.9% gives you 43 minutes a month of it.",
-                    "explanation": "The error budget. Framing reliability as a budget converts a values argument into a number both product and infra can agree on.",
+                    "title": "Git Best Practices",
+                    "prompt": "Which of the following are recognized Git best practices for maintainable projects?",
+                    "hint": "Think about commit sizes, commit messages, and secret management.",
+                    "explanation": "Committing small logical units, writing clear imperative commit messages, and never committing secrets (.env files) are industry standards.",
                     "xp": 25,
-                    "config": {"placeholder": "two words"},
-                    "solution": {"regex": True, "accept": [r"error\s+budget", r"the\s+error\s+budget"]},
+                    "config": {
+                        "options": [
+                            "Write clear, imperative commit messages describing what and why",
+                            "Make small, focused commits rather than giant multi-thousand-line dumps",
+                            "Always commit API keys and database passwords to version control",
+                            "Use .gitignore to exclude node_modules, build artifacts, and secrets",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 3]},
                 },
                 {
                     "kind": "code",
-                    "difficulty": "hard",
-                    "title": "Compute the p99",
-                    "prompt": "Write `percentile(latencies, p)` returning the nearest-rank percentile of a list of numbers.\n\nNearest rank: sort ascending, take index `ceil(p/100 * n) - 1`, clamped to `[0, n-1]`. Return `None` for an empty list.\n\n```\npercentile([1,2,3,4,5,6,7,8,9,10], 90) -> 9\npercentile([5], 50) -> 5\n```",
-                    "hint": "Sort, then `-(-p * n // 100) - 1` with clamping.",
-                    "explanation": "Nearest-rank is what most monitoring systems report and is trivially exact for a full sample. At real scale you'd use a t-digest or HDR histogram, since you cannot keep every latency in memory.",
-                    "xp": 50,
-                    "config": {"language": "python", "starter": "def percentile(latencies, p):\n    ...\n"},
+                    "difficulty": "medium",
+                    "title": "Detect Git Conflict Markers",
+                    "prompt": "Write `has_conflict_markers(file_content)` that returns `True` if a file content string contains unresolved Git merge conflict markers (`<<<<<<<` or `>>>>>>>`), and `False` otherwise.\n\n```python\nhas_conflict_markers(\"console.log('clean');\") -> False\nhas_conflict_markers(\"<<<<<<< HEAD\\nvar a = 1;\\n=======\\nvar a = 2;\\n>>>>>>> feat\") -> True\n```",
+                    "hint": "Check if `\"<<<<<<<\" in file_content or \">>>>>>>\" in file_content`.",
+                    "explanation": "Automated CI checks frequently scan for stray merge conflict markers before building.",
+                    "xp": 35,
+                    "config": {
+                        "language": "python",
+                        "starter": "def has_conflict_markers(file_content):\n    # Return True if conflict markers are present\n    ...\n",
+                    },
                     "solution": {
-                        "entrypoint": "percentile",
+                        "entrypoint": "has_conflict_markers",
                         "cases": [
-                            {"args": [[1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 90], "expect": 9},
-                            {"args": [[5], 50], "expect": 5},
-                            {"args": [[], 99], "expect": None},
-                            {"args": [[3, 1, 2], 100], "expect": 3},
-                            {"args": [[3, 1, 2], 1], "expect": 1},
-                            {"args": [list(range(1, 101)), 99], "expect": 99, "hidden": True},
+                            {"args": ["console.log('clean');"], "expect": False},
+                            {"args": ["<<<<<<< HEAD\na = 1\n=======\na = 2\n>>>>>>> feat"], "expect": True},
+                            {"args": [""], "expect": False},
+                            {"args": ["<<<<<<< only start"], "expect": True},
+                            {"args": ["clean text\nwith newlines"], "expect": False, "hidden": True},
+                        ],
+                    },
+                },
+            ],
+        },
+
+        # =========================================================================
+        # LEVEL 3: CONTAINERS & DOCKER FOUNDATIONS
+        # =========================================================================
+        {
+            "index": 3,
+            "title": "Containers & Docker Foundations",
+            "summary": "VMs vs containers, namespaces, cgroups, Dockerfile instructions, layer caching, and port mapping.",
+            "xp_reward": 105,
+            "lessons": [
+                {
+                    "title": "The 'Works on My Machine' Dilemma: VMs vs Containers",
+                    "minutes": 6,
+                    "body": """Why does code that runs perfectly on your laptop crash the moment it deploys to production?
+- Different Python / Node versions.
+- Missing system libraries (e.g. `libpq-dev`).
+- Different OS architectures (macOS vs Ubuntu Linux).
+
+### Virtual Machines vs Containers
+- **Virtual Machines (VMs)**: Each VM bundles a complete guest Operating System (several gigabytes), boots slowly, and runs on a hypervisor.
+- **Containers (Docker)**: Lightweight processes that **share the host Linux kernel**. They provide isolated environments using Linux **Namespaces** (isolates PID, network, mounts) and **Control Groups (cgroups)** (limits CPU and RAM).
+
+A container starts in 0.5 seconds and consumes almost zero idle overhead!""",
+                },
+                {
+                    "title": "Dockerfile Anatomy & Layer Caching",
+                    "minutes": 6,
+                    "body": """A **Dockerfile** is the blueprint for creating a container image:
+
+```dockerfile
+# 1. Base image
+FROM python:3.12-slim
+
+# 2. Working directory inside container
+WORKDIR /app
+
+# 3. Layer Caching optimization: copy dependencies first!
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 4. Copy application source code
+COPY . .
+
+# 5. Expose network port and define startup command
+EXPOSE 8000
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+```
+
+> [!TIP]
+> **Why copy `requirements.txt` before application code?**
+> Docker caches each build step (layer). If you edit one line of Python code, Docker reuses the cached `pip install` layer instead of redownloading 50 packages on every build!""",
+                },
+            ],
+            "challenges": [
+                {
+                    "kind": "mcq",
+                    "difficulty": "medium",
+                    "title": "Docker Layer Caching Optimization",
+                    "prompt": "Why should you COPY `package.json` or `requirements.txt` and install dependencies BEFORE copying the rest of your application code in a Dockerfile?",
+                    "hint": "Think about what happens on rebuild when application code changes.",
+                    "explanation": "Dependencies change much less frequently than application code. Copying them first allows Docker to reuse the cached dependency installation layer across builds.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "To take advantage of Docker layer caching and avoid reinstalling dependencies on every code change",
+                            "Because Docker refuses to build if application code is copied first",
+                            "To make the container run with root permissions",
+                            "To automatically compress the image size by 90%",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "multi",
+                    "difficulty": "easy",
+                    "title": "Standard Dockerfile Instructions",
+                    "prompt": "Which of the following are valid built-in Dockerfile instructions?",
+                    "hint": "Keywords used to define image layers.",
+                    "explanation": "FROM, WORKDIR, RUN, and CMD are core Dockerfile instructions. INSTALL is not a Dockerfile keyword (RUN is used).",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "FROM",
+                            "WORKDIR",
+                            "RUN",
+                            "INSTALL",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 2]},
+                },
+                {
+                    "kind": "short",
+                    "difficulty": "easy",
+                    "title": "Port Publishing Flag",
+                    "prompt": "In the `docker run` command, which short flag publishes a container's internal port to the host machine (e.g. `-p 8080:80`)?",
+                    "hint": "A single letter flag.",
+                    "explanation": "-p (or --publish) maps host_port:container_port.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. -p"},
+                    "solution": {"regex": True, "accept": [r"^-p$", r"^--publish$"]},
+                },
+                {
+                    "kind": "code",
+                    "difficulty": "medium",
+                    "title": "Generate Docker Run Command",
+                    "prompt": "Write `build_docker_cmd(image, host_port, container_port, name)` returning a formatted bash command string:\n`\"docker run -d --name {name} -p {host_port}:{container_port} {image}\"`\n\n```python\nbuild_docker_cmd(\"postgres:17\", 5432, 5432, \"db\")\n# -> \"docker run -d --name db -p 5432:5432 postgres:17\"\n```",
+                    "hint": "Use an f-string to assemble the arguments.",
+                    "explanation": "Building clean CLI command strings is a common automation scripting task.",
+                    "xp": 35,
+                    "config": {
+                        "language": "python",
+                        "starter": "def build_docker_cmd(image, host_port, container_port, name):\n    # Return formatted docker run command string\n    ...\n",
+                    },
+                    "solution": {
+                        "entrypoint": "build_docker_cmd",
+                        "cases": [
+                            {
+                                "args": ["postgres:17", 5432, 5432, "db"],
+                                "expect": "docker run -d --name db -p 5432:5432 postgres:17",
+                            },
+                            {
+                                "args": ["nginx:alpine", 80, 80, "web"],
+                                "expect": "docker run -d --name web -p 80:80 nginx:alpine",
+                            },
+                            {
+                                "args": ["redis:latest", 6379, 6379, "cache"],
+                                "expect": "docker run -d --name cache -p 6379:6379 redis:latest",
+                                "hidden": True,
+                            },
+                        ],
+                    },
+                },
+            ],
+        },
+
+        # =========================================================================
+        # LEVEL 4: CI/CD AUTOMATION & SAFE DEPLOYS
+        # =========================================================================
+        {
+            "index": 4,
+            "title": "CI/CD Automation & Safe Deployments",
+            "summary": "Continuous Integration, automated pipelines, GitHub Actions, Blue/Green deploys, and rollbacks.",
+            "xp_reward": 115,
+            "lessons": [
+                {
+                    "title": "What is CI/CD & Why Automate?",
+                    "minutes": 6,
+                    "body": """Manual deployments (SSH into server, run `git pull`, restart server) fail predictably: humans make typos, forget environment variables, or skip unit tests.
+
+### Continuous Integration (CI)
+Every time a developer opens a Pull Request:
+1. A clean virtual machine spins up in the cloud.
+2. Checks out the code and installs dependencies.
+3. Runs linters, type checks (`tsc` / `mypy`), and the entire automated test suite.
+4. If **any test fails**, merging is blocked automatically!
+
+### Continuous Deployment (CD)
+Once code is merged into `main`, the CD pipeline builds the Docker image, pushes it to a registry, and deploys it to the target cluster without manual intervention.""",
+                },
+                {
+                    "title": "Safe Zero-Downtime Deployment Strategies",
+                    "minutes": 6,
+                    "body": """How do you deploy a new version when 5,000 active users are making requests right now?
+
+### 1. Blue/Green Deployment
+- **Blue**: The live environment serving current production traffic (v1.0).
+- **Green**: An identical, parallel environment where you deploy and verify v2.0.
+- Once verified, the load balancer switches all traffic to Green instantly!
+- If an unexpected bug is spotted: switch back to Blue in 100 milliseconds!
+
+### 2. Rolling Updates
+Gradually replace containers one-by-one:
+- Start 1 new v2.0 container.
+- Wait for its health check to pass.
+- Terminate 1 old v1.0 container.
+- Repeat until 100% of containers are running v2.0.""",
+                },
+            ],
+            "challenges": [
+                {
+                    "kind": "mcq",
+                    "difficulty": "medium",
+                    "title": "Blue/Green Deployment Mechanics",
+                    "prompt": "What is the defining characteristic of a Blue/Green deployment strategy?",
+                    "hint": "Two identical environments.",
+                    "explanation": "Blue/Green maintains two identical environments; new code is deployed to the idle environment, and traffic is switched at the router/load balancer level.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "Maintaining two identical production environments and instantly switching router traffic between them",
+                            "Deploying code only on Tuesdays to avoid outages",
+                            "Restarting the server without saving logs",
+                            "Stopping all web traffic for 1 hour while updating the database",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "short",
+                    "difficulty": "easy",
+                    "title": "GitHub Actions Directory",
+                    "prompt": "In what repository directory path are GitHub Actions workflow YAML files located?",
+                    "hint": "Dot github slash...",
+                    "explanation": ".github/workflows stores CI/CD pipeline definitions.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. .github/workflows"},
+                    "solution": {"regex": True, "accept": [r"^\.?github/workflows/?$"]},
+                },
+                {
+                    "kind": "multi",
+                    "difficulty": "easy",
+                    "title": "Essential CI Pipeline Steps",
+                    "prompt": "Which of the following quality checks belong in an automated Pull Request CI pipeline?",
+                    "hint": "Think about what verifies code correctness before merging.",
+                    "explanation": "Linting, running automated tests, and scanning for security vulnerabilities ensure high code quality.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "Running unit and integration tests",
+                            "Checking code linting and style formatting",
+                            "Scanning dependencies for known security vulnerabilities",
+                            "Posting the developer's home address on Twitter",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 2]},
+                },
+                {
+                    "kind": "code",
+                    "difficulty": "medium",
+                    "title": "Evaluate Deployment Health",
+                    "prompt": "Write `evaluate_health(error_rate_pct, p99_latency_ms)` that determines whether a new deployment should continue or trigger an automatic rollback:\n- If `error_rate_pct >= 2.0` OR `p99_latency_ms >= 500`: return `\"rollback\"`\n- Else if `error_rate_pct >= 0.5` OR `p99_latency_ms >= 250`: return `\"degraded\"`\n- Otherwise return `\"healthy\"`\n\n```python\nevaluate_health(0.1, 120) -> \"healthy\"\nevaluate_health(3.5, 100) -> \"rollback\"\nevaluate_health(0.6, 200) -> \"degraded\"\n```",
+                    "hint": "Check rollback conditions first, then degraded, then healthy.",
+                    "explanation": "Automated rollback logic protects uptime when canary deployments degrade.",
+                    "xp": 40,
+                    "config": {
+                        "language": "python",
+                        "starter": "def evaluate_health(error_rate_pct, p99_latency_ms):\n    # Return 'healthy', 'degraded', or 'rollback'\n    ...\n",
+                    },
+                    "solution": {
+                        "entrypoint": "evaluate_health",
+                        "cases": [
+                            {"args": [0.1, 120], "expect": "healthy"},
+                            {"args": [3.5, 100], "expect": "rollback"},
+                            {"args": [0.1, 600], "expect": "rollback"},
+                            {"args": [0.6, 200], "expect": "degraded"},
+                            {"args": [0.0, 50], "expect": "healthy", "hidden": True},
+                        ],
+                    },
+                },
+            ],
+        },
+
+        # =========================================================================
+        # LEVEL 5: PRODUCTION OBSERVABILITY & SRE
+        # =========================================================================
+        {
+            "index": 5,
+            "title": "Production Observability & SRE",
+            "summary": "Logs vs metrics vs traces, structured JSON logging, health checks, and the 4 Golden Signals.",
+            "xp_reward": 125,
+            "lessons": [
+                {
+                    "title": "The 3 Pillars of Observability",
+                    "minutes": 6,
+                    "body": """You cannot fix what you cannot see. When an outage occurs at 3 AM, how do you diagnose the root cause?
+
+### 1. Logs
+Discrete, timestamped records of events:
+- In 12-factor apps, **never write to local log files**! Print structured JSON logs directly to `stdout`/`stderr`.
+- A log collector (Datadog, Grafana Loki, CloudWatch) aggregates streams centrally.
+
+### 2. Metrics
+Aggregatable numerical values measured over time:
+- CPU utilization (%), HTTP request rate (req/sec), 5xx error rate (%).
+- Stored efficiently in time-series databases (Prometheus).
+
+### 3. Distributed Tracing
+Tracks a single request as it hops across multiple microservices (API gateway $\\rightarrow$ Auth service $\\rightarrow$ Database), visualizing exactly which database query took 800ms!""",
+                },
+                {
+                    "title": "The 4 Golden Signals & Health Endpoints",
+                    "minutes": 6,
+                    "body": """Google Site Reliability Engineering (SRE) identifies the **Four Golden Signals**:
+1. **Latency**: How long requests take to respond.
+2. **Traffic**: Demand on your system (requests per second).
+3. **Errors**: The rate of requests that fail (HTTP 5xx).
+4. **Saturation**: How full your system is (memory % or connection pool usage).
+
+### Health Check Endpoints (`/healthz`)
+Load balancers ping a `/healthz` or `/health` endpoint every 5 seconds:
+- Returns `200 OK`: Instance is healthy.
+- Fails or times out 3 times in a row: Load balancer immediately stops sending user traffic to that container!""",
+                },
+            ],
+            "challenges": [
+                {
+                    "kind": "mcq",
+                    "difficulty": "easy",
+                    "title": "12-Factor App Logging Destination",
+                    "prompt": "According to modern 12-Factor App principles, where should production containerized applications write their logs?",
+                    "hint": "Standard output streams.",
+                    "explanation": "Applications should treat logs as unbuffered event streams written directly to stdout/stderr.",
+                    "xp": 20,
+                    "config": {
+                        "options": [
+                            "Standard output (stdout) and standard error (stderr)",
+                            "A hardcoded file on local disk /tmp/app.log",
+                            "Directly inside the PostgreSQL database table",
+                            "Sent as email attachments to the sysadmin",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "multi",
+                    "difficulty": "medium",
+                    "title": "The 4 Golden Signals of SRE",
+                    "prompt": "Which of the following are Google SRE's 'Four Golden Signals' of system health?",
+                    "hint": "Latency, Traffic, Errors, and...",
+                    "explanation": "The 4 Golden Signals are Latency, Traffic, Errors, and Saturation.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "Latency",
+                            "Traffic",
+                            "Errors",
+                            "Saturation",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 2, 3]},
+                },
+                {
+                    "kind": "short",
+                    "difficulty": "easy",
+                    "title": "Standard Health Endpoint Path",
+                    "prompt": "What common endpoint URL path (often ending with a 'z') is polled by container orchestrators like Kubernetes to check container health?",
+                    "hint": "/health...",
+                    "explanation": "/healthz is the standard Kubernetes liveness and readiness probe path.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. /healthz"},
+                    "solution": {"regex": True, "accept": [r"^/healthz$", r"^/health$"]},
+                },
+                {
+                    "kind": "code",
+                    "difficulty": "medium",
+                    "title": "Calculate 5xx Error Rate Percentage",
+                    "prompt": "Write `calculate_error_rate(status_codes)` that computes the percentage of HTTP 5xx server errors in a list of status codes.\n- 5xx errors are codes where `500 <= code <= 599`\n- Return the percentage as a float rounded to 2 decimal places (e.g. `12.5`)\n- If `status_codes` is empty, return `0.0`\n\n```python\ncalculate_error_rate([200, 200, 500, 200]) -> 25.0\ncalculate_error_rate([200, 404]) -> 0.0\ncalculate_error_rate([]) -> 0.0\n```",
+                    "hint": "Count codes between 500 and 599, divide by `len(status_codes)`, multiply by 100, and use `round(val, 2)`.",
+                    "explanation": "Calculating error rates is fundamental for automated alerting and SLO tracking.",
+                    "xp": 40,
+                    "config": {
+                        "language": "python",
+                        "starter": "def calculate_error_rate(status_codes):\n    # Return percentage of 5xx errors rounded to 2 decimals\n    ...\n",
+                    },
+                    "solution": {
+                        "entrypoint": "calculate_error_rate",
+                        "cases": [
+                            {"args": [[200, 200, 500, 200]], "expect": 25.0},
+                            {"args": [[200, 404]], "expect": 0.0},
+                            {"args": [[]], "expect": 0.0},
+                            {"args": [[500, 502, 503]], "expect": 100.0},
+                            {"args": [[200, 201, 301, 400, 500]], "expect": 20.0, "hidden": True},
                         ],
                     },
                 },

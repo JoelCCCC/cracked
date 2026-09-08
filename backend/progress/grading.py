@@ -18,6 +18,8 @@ def grade(challenge: Challenge, submission: dict) -> tuple[bool, dict]:
 
     if kind == Challenge.Kind.MCQ:
         choice = submission.get("choice")
+        if choice is None:
+            choice = submission.get("answer")
         if choice is not None:
             try:
                 choice = int(choice)
@@ -27,6 +29,8 @@ def grade(challenge: Challenge, submission: dict) -> tuple[bool, dict]:
 
     if kind == Challenge.Kind.MULTI:
         chosen = submission.get("choices")
+        if chosen is None:
+            chosen = submission.get("answers")
         if not isinstance(chosen, list):
             return False, {"error": "Pick at least one option."}
         parsed = []

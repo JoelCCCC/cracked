@@ -1,85 +1,347 @@
 TRACK = {
     "slug": "databases",
     "name": "Database Design",
-    "tagline": "Schemas that survive contact with real traffic.",
+    "tagline": "How databases actually store, index, query, and protect your data.",
     "description": (
-        "Normalisation and when to break it, indexes and why yours isn't used, "
-        "transactions and isolation, and the query patterns that quietly melt production."
+        "Start from absolute zero. Learn why relational databases exist, master SQL queries and joins, "
+        "understand B-Tree indexes, and protect data integrity with transactions and ACID."
     ),
-    "icon": "▤",
-    "accent": "#3b9dff",
+    "icon": "⊞",
+    "accent": "#f5a623",
     "order": 4,
-    "required_xp": 1400,
+    "required_xp": 750,
     "levels": [
+        # =========================================================================
+        # LEVEL 1: DATABASES FROM ZERO & SCHEMAS
+        # =========================================================================
         {
             "index": 1,
-            "title": "Modelling and normalisation",
-            "summary": "Keys, relationships, 3NF, and the denormalisation you do on purpose.",
-            "xp_reward": 100,
+            "title": "Databases from Zero: Relational Thinking & Schemas",
+            "summary": "Why spreadsheets and flat files fail, tables, columns, data types, and primary keys.",
+            "xp_reward": 85,
             "lessons": [
                 {
-                    "title": "Normal forms, in plain language",
-                    "minutes": 7,
-                    "body": """Normalisation means: **store each fact exactly once**.
+                    "title": "Why Databases? Moving Beyond Spreadsheets & Files",
+                    "minutes": 6,
+                    "body": """When starting out, it's tempting to store data in a JSON file or an Excel spreadsheet. Here is why production systems cannot do that:
 
-- **1NF** — no repeating groups. `tags` as a comma-separated string is a 1NF violation, and it's why you can't index or join on it.
-- **2NF** — no column depending on only *part* of a composite key.
-- **3NF** — no column depending on another non-key column. If `orders` stores `customer_email`, and email lives on `customers`, you now have two copies that will disagree.
+1. **Concurrent Writes**: What happens when two users click "Buy" at the exact same millisecond? In a flat file, one write overwrites the other, corrupting data.
+2. **Crash Resilience**: If power cuts out mid-save, a flat file is left corrupted and unreadable. Databases use Write-Ahead Logs (WAL) to guarantee zero corruption.
+3. **Query Scale**: To find one user in a 10-million line JSON file, you must load all 5 gigabytes into RAM and scan every line. A database uses indexes to find the row in 0.2 milliseconds!
 
-The interview one-liner: *every non-key column depends on the key, the whole key, and nothing but the key.*
-
-```sql
--- not normalised: product name and price copied onto every line
-CREATE TABLE order_lines (
-  order_id   BIGINT,
-  product_id BIGINT,
-  product_name TEXT,     -- duplicated from products
-  unit_price NUMERIC     -- ...but see below
-);
-```
-
-`product_name` is a genuine bug: rename the product and history rewrites itself. `unit_price` is **not** — the price *at time of sale* is a different fact from the current price, and it belongs on the line. Recognising that difference is the actual skill.""",
+### The Relational Model
+A relational database (like PostgreSQL) organizes data into **Tables**:
+- Each **Table** represents an entity (e.g. `users`, `orders`).
+- Each **Row** (or record) represents a single instance of that entity.
+- Each **Column** represents a specific attribute with a rigid data type.""",
                 },
                 {
-                    "title": "Denormalise deliberately",
+                    "title": "Data Types & The Golden Primary Key Rule",
                     "minutes": 6,
-                    "body": """Normalise first. Denormalise only with a measurement in hand and a plan for keeping copies in sync.
+                    "body": """Every column in a relational table has an enforced data type:
 
-Legitimate reasons:
+| Type | When to use | Example |
+| :--- | :--- | :--- |
+| `INTEGER` / `BIGINT` | Counters, quantities, numerical IDs | `42` |
+| `VARCHAR(n)` | Short text with a reasonable limit | `"alice@example.com"` |
+| `TEXT` | Long text of unpredictable size | Product description, comments |
+| `BOOLEAN` | Binary flags | `true` / `false` |
+| `TIMESTAMP WITH TIME ZONE` | Exact point in universal time | `2026-09-08 14:30:00Z` |
 
-- **Point-in-time facts** — price paid, shipping address used, tax rate applied.
-- **Counter caches** — `posts.comment_count` when the count is read a thousand times per write. Maintain it in the same transaction or a trigger, never in application code that can crash halfway.
-- **Read models** — a flattened table or materialised view feeding a dashboard.
+### Primary Keys: The Identity of a Row
+Every table must have a **Primary Key (PK)**:
+- It **uniquely identifies** every row in the table.
+- It can **never be NULL**.
+- It should **never change** over the life of the record.
 
-Constraints are how you keep it honest, and they belong in the database, not only in the app:
-
-```sql
-CREATE TABLE memberships (
-  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  team_id BIGINT NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
-  role    TEXT   NOT NULL CHECK (role IN ('owner','admin','member')),
-  PRIMARY KEY (user_id, team_id)
-);
-```
-
-Two apps, a migration script and a psql session all write to your database. Only the database can enforce a rule for all four.""",
+Most tables use an auto-incrementing integer (`SERIAL` / `BIGSERIAL`) or a `UUID`.""",
                 },
             ],
             "challenges": [
                 {
                     "kind": "mcq",
-                    "difficulty": "medium",
-                    "title": "Which copy is a bug",
-                    "prompt": "An `order_lines` table stores `product_name` and `unit_price` copied from `products`. Which one is a genuine normalisation problem?",
-                    "hint": "One of them is a different fact, not a duplicate one.",
-                    "explanation": "`unit_price` records the price *at the time of sale* — a distinct fact that must not change when the catalogue does. `product_name` is a true duplicate and will drift on rename.",
-                    "xp": 30,
+                    "difficulty": "easy",
+                    "title": "Primary Key Invariant",
+                    "prompt": "What are the two mandatory properties of any Primary Key in a relational database?",
+                    "hint": "Can two rows share a primary key? Can a primary key be empty?",
+                    "explanation": "A primary key must be unique across all rows and cannot be NULL.",
+                    "xp": 20,
                     "config": {
                         "options": [
-                            "Only product_name",
-                            "Only unit_price",
-                            "Both are bugs",
-                            "Neither — copying is always fine for speed",
+                            "Must be unique and cannot be NULL",
+                            "Must be an alphabetical string and unique",
+                            "Must be greater than 100",
+                            "Must change whenever the row is updated",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "multi",
+                    "difficulty": "medium",
+                    "title": "Why Not Flat Files?",
+                    "prompt": "Which of the following are major architectural risks when storing production data in flat CSV or JSON files?",
+                    "hint": "Think about crashes, speed, and simultaneous users.",
+                    "explanation": "Concurrent writes corrupt flat files, searching requires scanning the entire file, and power losses cause data loss.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "Concurrent writes by multiple threads can corrupt the file",
+                            "Finding a single record requires reading the entire file from disk",
+                            "JSON files take up too much color on monitors",
+                            "No automatic rollback if a power failure occurs mid-write",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 3]},
+                },
+                {
+                    "kind": "short",
+                    "difficulty": "easy",
+                    "title": "Disallowing Null Values",
+                    "prompt": "What SQL constraint keyword prevents a column from ever holding a NULL value?",
+                    "hint": "Two words: NOT ...",
+                    "explanation": "The `NOT NULL` constraint prevents null values from being inserted.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. NOT NULL"},
+                    "solution": {"regex": True, "accept": [r"NOT\s+NULL", r"not\s+null"]},
+                },
+                {
+                    "kind": "code",
+                    "difficulty": "medium",
+                    "title": "Validate Row Against Schema",
+                    "prompt": "Write `validate_row(row, schema)` that verifies whether a row dictionary matches expected column types.\n`schema` is a dict of `{col_name: type_name_str}` (e.g. `\"int\"`, `\"str\"`, `\"bool\"`).\n\nA row is valid (`True`) if:\n1. It contains all columns required by `schema`.\n2. Each value's type matches: `type(row[col]).__name__ == expected_type_str`.\nOtherwise return `False`.\n\n```python\nschema = {\"id\": \"int\", \"name\": \"str\"}\nvalidate_row({\"id\": 1, \"name\": \"Alex\"}, schema) -> True\nvalidate_row({\"id\": \"1\", \"name\": \"Alex\"}, schema) -> False\nvalidate_row({\"id\": 1}, schema) -> False\n```",
+                    "hint": "Check `col in row and type(row[col]).__name__ == expected_type` for each column in schema.",
+                    "explanation": "Schema validation enforces column types before persistence.",
+                    "xp": 40,
+                    "config": {
+                        "language": "python",
+                        "starter": "def validate_row(row, schema):\n    # Return True if row values match schema types\n    ...\n",
+                    },
+                    "solution": {
+                        "entrypoint": "validate_row",
+                        "cases": [
+                            {"args": [{"id": 1, "name": "Alex"}, {"id": "int", "name": "str"}], "expect": True},
+                            {"args": [{"id": "1", "name": "Alex"}, {"id": "int", "name": "str"}], "expect": False},
+                            {"args": [{"id": 1}, {"id": "int", "name": "str"}], "expect": False},
+                            {"args": [{"id": 10, "active": True}, {"id": "int", "active": "bool"}], "expect": True},
+                            {"args": [{}, {"id": "int"}], "expect": False, "hidden": True},
+                        ],
+                    },
+                },
+            ],
+        },
+
+        # =========================================================================
+        # LEVEL 2: SQL FOUNDATIONS: QUERYING & AGGREGATIONS
+        # =========================================================================
+        {
+            "index": 2,
+            "title": "SQL Foundations: SELECT, Filtering & Aggregating",
+            "summary": "Writing clean queries, WHERE operators, sorting, LIMIT/OFFSET, and GROUP BY aggregations.",
+            "xp_reward": 95,
+            "lessons": [
+                {
+                    "title": "The Anatomy of a SELECT Query",
+                    "minutes": 6,
+                    "body": """SQL (Structured Query Language) is declarative: you describe **what** data you want, and the database engine plans the fastest way to get it.
+
+```sql
+SELECT id, name, email, score
+FROM users
+WHERE score >= 100 AND active = true
+ORDER BY score DESC
+LIMIT 10 OFFSET 20;
+```
+
+### Order of SQL Execution
+Although written starting with `SELECT`, the database executes queries in this order:
+1. `FROM`: Which table to read
+2. `WHERE`: Filter rows
+3. `GROUP BY`: Aggregate into groups
+4. `HAVING`: Filter grouped aggregates
+5. `SELECT`: Pick which columns to return
+6. `ORDER BY`: Sort the results
+7. `LIMIT / OFFSET`: Take a slice""",
+                },
+                {
+                    "title": "Aggregations & GROUP BY",
+                    "minutes": 6,
+                    "body": """Aggregate functions summarize multiple rows into a single scalar value:
+- `COUNT(*)`: Total number of matching rows
+- `SUM(column)`: Total sum of numeric values
+- `AVG(column)`: Mean average
+- `MIN(column)` / `MAX(column)`: Minimum and maximum
+
+### Grouping Rows
+To calculate metrics per category, use `GROUP BY`:
+
+```sql
+SELECT department, COUNT(*) as employee_count, AVG(salary) as avg_salary
+FROM employees
+GROUP BY department
+HAVING AVG(salary) > 80000;
+```
+
+> [!IMPORTANT]
+> - `WHERE` filters individual rows **before** aggregation.
+> - `HAVING` filters groups **after** aggregation.""",
+                },
+            ],
+            "challenges": [
+                {
+                    "kind": "mcq",
+                    "difficulty": "easy",
+                    "title": "WHERE vs HAVING",
+                    "prompt": "What is the key difference between the WHERE clause and the HAVING clause in SQL?",
+                    "hint": "When does grouping happen relative to each clause?",
+                    "explanation": "WHERE filters raw individual rows before GROUP BY; HAVING filters the aggregated groups after grouping.",
+                    "xp": 20,
+                    "config": {
+                        "options": [
+                            "WHERE filters rows before grouping; HAVING filters aggregated groups",
+                            "HAVING filters rows before grouping; WHERE filters aggregated groups",
+                            "WHERE can only be used with numbers; HAVING can only be used with strings",
+                            "There is no difference; they are aliases",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "multi",
+                    "difficulty": "easy",
+                    "title": "Standard SQL Aggregate Functions",
+                    "prompt": "Which of the following are built-in standard SQL aggregate functions?",
+                    "hint": "Functions that collapse multiple rows into one value.",
+                    "explanation": "COUNT, SUM, and AVG are aggregate functions. SORT is a clause (ORDER BY), not a function.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "COUNT()",
+                            "SUM()",
+                            "AVG()",
+                            "SORT()",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 2]},
+                },
+                {
+                    "kind": "short",
+                    "difficulty": "easy",
+                    "title": "SQL Sorting Clause",
+                    "prompt": "What two-word SQL clause is used to sort query results in ascending or descending order?",
+                    "hint": "ORDER ...",
+                    "explanation": "ORDER BY sorts the returned rows.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. ORDER BY"},
+                    "solution": {"regex": True, "accept": [r"order\s+by", r"ORDER\s+BY"]},
+                },
+                {
+                    "kind": "code",
+                    "difficulty": "medium",
+                    "title": "Filter and Sort In-Memory Rows",
+                    "prompt": "Write `filter_and_sort(records, min_score, sort_key)` that simulates a SQL query in Python:\n- Keep only records where `record[\"score\"] >= min_score`\n- Sort the remaining records in **descending** order of `record[sort_key]`\n- Return the sorted list of dicts\n\n```python\nrecords = [\n    {\"id\": 1, \"score\": 80},\n    {\"id\": 2, \"score\": 95},\n    {\"id\": 3, \"score\": 40}\n]\nfilter_and_sort(records, 50, \"score\")\n# -> [{\"id\": 2, \"score\": 95}, {\"id\": 1, \"score\": 80}]\n```",
+                    "hint": "Filter using a list comprehension, then sort with `sorted(..., key=lambda r: r[sort_key], reverse=True)`.",
+                    "explanation": "Filtering and sorting simulates the core behavior of WHERE and ORDER BY clauses.",
+                    "xp": 40,
+                    "config": {
+                        "language": "python",
+                        "starter": "def filter_and_sort(records, min_score, sort_key):\n    # Filter and sort records\n    ...\n",
+                    },
+                    "solution": {
+                        "entrypoint": "filter_and_sort",
+                        "cases": [
+                            {
+                                "args": [
+                                    [{"id": 1, "score": 80}, {"id": 2, "score": 95}, {"id": 3, "score": 40}],
+                                    50,
+                                    "score",
+                                ],
+                                "expect": [{"id": 2, "score": 95}, {"id": 1, "score": 80}],
+                            },
+                            {
+                                "args": [[{"id": 1, "score": 10}], 50, "score"],
+                                "expect": [],
+                            },
+                            {
+                                "args": [[{"id": 1, "score": 100}, {"id": 2, "score": 100}], 100, "id"],
+                                "expect": [{"id": 2, "score": 100}, {"id": 1, "score": 100}],
+                                "hidden": True,
+                            },
+                        ],
+                    },
+                },
+            ],
+        },
+
+        # =========================================================================
+        # LEVEL 3: RELATIONSHIPS, FOREIGN KEYS & JOINS
+        # =========================================================================
+        {
+            "index": 3,
+            "title": "Relationships, Foreign Keys & JOINs",
+            "summary": "1-to-many, many-to-many junction tables, foreign keys, INNER JOIN, and LEFT JOIN.",
+            "xp_reward": 105,
+            "lessons": [
+                {
+                    "title": "Relational Modeling: 1-to-Many & Many-to-Many",
+                    "minutes": 6,
+                    "body": """Data in the real world is interconnected. Instead of cramming arrays into a single column, we use **Foreign Keys (FK)**.
+
+### 1-to-Many (Parent-Child)
+One `author` has many `books`.
+- The `books` table contains an `author_id` column referencing `authors(id)`.
+- The database enforces referential integrity: you cannot insert a book referencing an `author_id` that does not exist.
+
+### Many-to-Many
+One `student` enrolls in many `courses`, and each `course` has many `students`.
+We resolve this using a **Junction Table** (`enrollments`):
+```
+students (id, name)
+   │
+   └── enrollments (student_id, course_id, enrolled_at)
+             │
+courses (id, title)
+```""",
+                },
+                {
+                    "title": "INNER JOIN vs LEFT JOIN",
+                    "minutes": 6,
+                    "body": """When querying related tables, we **JOIN** them on their shared key:
+
+### INNER JOIN
+Returns rows **only when there is a match in both tables**:
+```sql
+SELECT users.name, orders.total
+FROM users
+INNER JOIN orders ON orders.user_id = users.id;
+```
+If a user has never placed an order, they will **not** appear in the results.
+
+### LEFT JOIN (LEFT OUTER JOIN)
+Returns **all rows from the left table**, plus matching rows from the right table. If no match exists, columns from the right table are `NULL`:
+```sql
+SELECT users.name, orders.total
+FROM users
+LEFT JOIN orders ON orders.user_id = users.id;
+```
+Now users with zero orders still appear, with `orders.total` being `NULL`!""",
+                },
+            ],
+            "challenges": [
+                {
+                    "kind": "mcq",
+                    "difficulty": "easy",
+                    "title": "Preserving Unmatched Left Rows",
+                    "prompt": "You want to list all registered users along with their most recent order, including users who have never placed an order. What JOIN type should you use?",
+                    "hint": "Which join preserves all rows from the primary table?",
+                    "explanation": "LEFT JOIN keeps all rows from the left table (users) even if no corresponding row exists in the right table (orders).",
+                    "xp": 20,
+                    "config": {
+                        "options": [
+                            "LEFT JOIN",
+                            "INNER JOIN",
+                            "CROSS JOIN",
+                            "NATURAL JOIN",
                         ]
                     },
                     "solution": {"answer": 0},
@@ -87,28 +349,28 @@ Two apps, a migration script and a psql session all write to your database. Only
                 {
                     "kind": "short",
                     "difficulty": "easy",
-                    "title": "Tags in a string",
-                    "prompt": "A table stores tags as `'python,web,sql'` in one TEXT column. Which normal form does this break? (Answer like `2NF`.)",
-                    "hint": "Repeating groups in one column.",
-                    "explanation": "1NF requires atomic values. The fix is a `tags` table plus a join table — which also gives you an index and real referential integrity.",
-                    "xp": 25,
-                    "config": {"placeholder": "e.g. 3NF"},
-                    "solution": {"regex": True, "accept": [r"1\s*nf", r"first\s+normal\s+form"]},
+                    "title": "Constraint Enforcing Referential Integrity",
+                    "prompt": "What two-word SQL constraint links a column in one table to the primary key of another table?",
+                    "hint": "FOREIGN ...",
+                    "explanation": "A FOREIGN KEY constraint guarantees referential integrity.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. FOREIGN KEY"},
+                    "solution": {"regex": True, "accept": [r"foreign\s+key", r"FOREIGN\s+KEY"]},
                 },
                 {
                     "kind": "multi",
                     "difficulty": "medium",
-                    "title": "Constraints worth having",
-                    "prompt": "Which of these belong in the database schema rather than only in application code?",
-                    "hint": "Which rules must hold no matter who is writing?",
-                    "explanation": "Uniqueness, foreign keys and value checks are integrity rules — enforce them where every writer passes. Formatting an amount for display is a presentation concern.",
-                    "xp": 30,
+                    "title": "Junction Table Characteristics",
+                    "prompt": "Which of the following statements are true about a Junction Table (Join Table)?",
+                    "hint": "How do you model many-to-many relationships?",
+                    "explanation": "A junction table resolves many-to-many relationships and holds foreign keys referencing both participating tables.",
+                    "xp": 25,
                     "config": {
                         "options": [
-                            "A unique index on users.email",
-                            "A foreign key from orders.user_id to users.id",
-                            "CHECK (quantity > 0)",
-                            "Formatting prices as '$12.00' for the UI",
+                            "It is used to represent Many-to-Many relationships",
+                            "It typically contains at least two Foreign Key columns",
+                            "It can store relationship-specific metadata (such as created_at or role)",
+                            "It eliminates the need for primary keys anywhere in the database",
                         ]
                     },
                     "solution": {"answers": [0, 1, 2]},
@@ -116,278 +378,292 @@ Two apps, a migration script and a psql session all write to your database. Only
                 {
                     "kind": "code",
                     "difficulty": "medium",
-                    "title": "Find the duplicated facts",
-                    "prompt": "Given a list of row dicts, write `duplicated_columns(rows, key)` returning the **sorted** list of column names whose value is fully determined by `key` and appears in more than one row for the same key value — i.e. columns that are duplicated per key.\n\nIgnore the `key` column itself. A column that ever disagrees for the same key is **not** a candidate.\n\n```\nrows = [\n  {'product_id': 1, 'name': 'Pen', 'price': 2},\n  {'product_id': 1, 'name': 'Pen', 'price': 3},\n  {'product_id': 2, 'name': 'Cup', 'price': 5},\n]\nduplicated_columns(rows, 'product_id') -> ['name']\n```",
-                    "hint": "For each column, group values by the key. A column qualifies if every key maps to exactly one distinct value and some key has more than one row.",
-                    "explanation": "This is functional-dependency detection — the mechanical form of 'is this column duplicated from another table?'. Real schema linters do exactly this over a sample of production data.",
-                    "xp": 50,
-                    "config": {"language": "python", "starter": "def duplicated_columns(rows, key):\n    ...\n"},
+                    "title": "In-Memory INNER JOIN",
+                    "prompt": "Write `inner_join(left_list, right_list, join_key)` that performs an in-memory inner join on two lists of dictionaries.\n- Match rows where `left_row[join_key] == right_row[join_key]`\n- Merge the matching dictionaries into a single combined dictionary `{**left, **right}`\n- Return a list of all merged dictionaries\n\n```python\nusers = [{\"id\": 1, \"name\": \"Alex\"}, {\"id\": 2, \"name\": \"Sam\"}]\norders = [{\"id\": 10, \"user_id\": 1, \"amt\": 50}]\ninner_join(users, orders, \"id\") # Note: matching key is specified\n```",
+                    "hint": "Index right_list by join_key in a dictionary for O(n + m) performance, or use nested loops.",
+                    "explanation": "Inner join matches records on equivalent keys, producing combined row records.",
+                    "xp": 45,
+                    "config": {
+                        "language": "python",
+                        "starter": "def inner_join(left_list, right_list, join_key):\n    # Return merged dicts matching on join_key\n    ...\n",
+                    },
                     "solution": {
-                        "entrypoint": "duplicated_columns",
+                        "entrypoint": "inner_join",
                         "cases": [
                             {
                                 "args": [
-                                    [
-                                        {"product_id": 1, "name": "Pen", "price": 2},
-                                        {"product_id": 1, "name": "Pen", "price": 3},
-                                        {"product_id": 2, "name": "Cup", "price": 5},
-                                    ],
-                                    "product_id",
+                                    [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}],
+                                    [{"id": 1, "score": 90}, {"id": 3, "score": 70}],
+                                    "id",
                                 ],
-                                "expect": ["name"],
+                                "expect": [{"id": 1, "name": "A", "score": 90}],
                             },
-                            {"args": [[], "id"], "expect": []},
                             {
-                                "args": [[{"id": 1, "a": 1}, {"id": 2, "a": 2}], "id"],
+                                "args": [[{"id": 1}], [{"id": 2}], "id"],
                                 "expect": [],
                             },
                             {
                                 "args": [
-                                    [{"id": 1, "a": 1, "b": 9}, {"id": 1, "a": 1, "b": 9}],
-                                    "id",
+                                    [{"k": "x", "val": 1}, {"k": "y", "val": 2}],
+                                    [{"k": "y", "desc": "yes"}, {"k": "x", "desc": "no"}],
+                                    "k",
                                 ],
-                                "expect": ["a", "b"],
+                                "expect": [
+                                    {"k": "x", "val": 1, "desc": "no"},
+                                    {"k": "y", "val": 2, "desc": "yes"},
+                                ],
+                                "hidden": True,
                             },
                         ],
                     },
                 },
             ],
         },
+
+        # =========================================================================
+        # LEVEL 4: INDEXES, B-TREES & QUERY OPTIMIZATION
+        # =========================================================================
         {
-            "index": 2,
-            "title": "Indexes and query plans",
-            "summary": "B-trees, composite order, selectivity, and reading EXPLAIN.",
-            "xp_reward": 110,
+            "index": 4,
+            "title": "Indexes, B-Trees & Query Optimization",
+            "summary": "Seq Scan vs Index Scan, how B-Trees work, composite index prefix rules, and EXPLAIN ANALYZE.",
+            "xp_reward": 115,
             "lessons": [
                 {
-                    "title": "Why your index isn't used",
-                    "minutes": 7,
-                    "body": """A B-tree index is a sorted structure. That single fact explains almost every gotcha.
+                    "title": "How Databases Search: Seq Scan vs B-Tree",
+                    "minutes": 6,
+                    "body": """Without an index, finding a user by email requires a **Sequential Scan (Seq Scan)**:
+The database must read every single 8KB disk block from the hard drive, scanning row by row ($O(n)$).
+On 50 million rows, this takes 15 seconds!
 
-**Composite order is left-to-right.** An index on `(tenant_id, created_at)` serves:
-
-- `WHERE tenant_id = 5` ✅
-- `WHERE tenant_id = 5 ORDER BY created_at` ✅ (sorted for free)
-- `WHERE created_at > now() - '1 day'` ❌ — you skipped the leading column
-
-**Rule:** equality columns first, then the range/sort column.
-
-**Wrapping the column kills it.**
+### What is a B-Tree Index?
+A B-Tree (Balanced Tree) is a sorted, self-balancing tree stored on disk:
+- Each node contains sorted keys and pointers to child blocks.
+- Looking up a value requires following pointers from root to leaf in $O(\\log n)$ steps (typically just 3 or 4 disk reads!).
+- Searching 50 million rows drops from 15 seconds to **0.5 milliseconds**!
 
 ```sql
-WHERE lower(email) = 'a@b.com'          -- seq scan
-CREATE INDEX ON users (lower(email));   -- ...unless you index the expression
-WHERE created_at::date = '2024-01-01'   -- seq scan
-WHERE created_at >= '2024-01-01' AND created_at < '2024-01-02'  -- index scan
+CREATE INDEX idx_users_email ON users(email);
 ```
 
-**Leading wildcards can't be used.** `LIKE '%foo'` cannot; `LIKE 'foo%'` can. For full-text, use a GIN index and `tsvector`.
-
-**Low selectivity is not worth indexing.** A boolean `is_active` that is true for 95% of rows will be ignored — the planner correctly judges a sequential scan cheaper. A *partial* index (`WHERE is_active = false`) is the fix.
-
-Every index also costs write throughput and disk. Index what you filter, join and sort on; then delete the ones `pg_stat_user_indexes` says nobody uses.""",
+> [!CAUTION]
+> Indexes are not free! Every index accelerates `SELECT` queries, but slightly **slows down `INSERT`, `UPDATE`, and `DELETE`** because the database must keep the B-Tree balanced on every write.""",
                 },
                 {
-                    "title": "Reading EXPLAIN ANALYZE",
+                    "title": "Composite Indexes & The Leftmost Prefix Rule",
                     "minutes": 6,
-                    "body": """```
-EXPLAIN (ANALYZE, BUFFERS) SELECT ...;
+                    "body": """When queries filter on multiple columns, you can create a composite (multi-column) index:
+
+```sql
+CREATE INDEX idx_orders_org_created ON orders(org_id, created_at);
 ```
 
-Read it **inside out** — the deepest node runs first. What to look for:
+### The Leftmost Prefix Rule
+Think of a multi-column index like a phonebook sorted by `(Last Name, First Name)`:
+- Can you quickly find everyone named `"Smith"`? **Yes** (leftmost column match).
+- Can you find `"John Smith"`? **Yes** (full match).
+- Can you quickly find everyone with the first name `"John"`, regardless of last name? **NO!** You have to read the entire phonebook!
 
-- `Seq Scan` on a large table with a selective `WHERE` → missing index.
-- **Estimated vs actual rows** off by 100x → stale statistics; `ANALYZE` the table. Bad estimates cause bad plan choices, which is the root of most "it was fast yesterday".
-- `Nested Loop` with a big outer row count → often should be a hash join.
-- `rows removed by filter` in the millions → you are reading far more than you return.
-- High `shared read` in BUFFERS → going to disk instead of cache.
-
-The number that matters is `actual time` on the top node, and where inside the tree it accumulates. A plan that looks ugly but returns in 3ms needs no work.""",
+An index on `(A, B)` speeds up queries on:
+- `WHERE A = ?`
+- `WHERE A = ? AND B = ?`
+It **does NOT** speed up `WHERE B = ?` alone!""",
                 },
             ],
             "challenges": [
                 {
                     "kind": "mcq",
                     "difficulty": "medium",
-                    "title": "Composite index order",
-                    "prompt": "Your hottest query is:\n\n```sql\nSELECT * FROM events\nWHERE tenant_id = $1 AND created_at >= $2\nORDER BY created_at DESC\nLIMIT 50;\n```\n\nWhich index serves it best?",
-                    "hint": "Equality first, then the range/sort column.",
-                    "explanation": "`(tenant_id, created_at)` lets the planner seek to the tenant and then walk `created_at` in order — the filter, the range and the ORDER BY are all satisfied by one index scan, so the LIMIT stops early.",
-                    "xp": 30,
+                    "title": "Composite Index Leftmost Prefix",
+                    "prompt": "You have a composite B-Tree index on `orders(customer_id, order_date)`. Which of the following queries CANNOT use this index efficiently?",
+                    "hint": "Remember the phonebook sorted by (Last Name, First Name).",
+                    "explanation": "Querying by `order_date` alone violates the leftmost prefix rule because the index is sorted primarily by `customer_id`.",
+                    "xp": 25,
                     "config": {
                         "options": [
-                            "(created_at, tenant_id)",
-                            "(tenant_id, created_at)",
-                            "Two separate single-column indexes",
-                            "(tenant_id) only",
+                            "SELECT * FROM orders WHERE order_date = '2026-01-01'",
+                            "SELECT * FROM orders WHERE customer_id = 42",
+                            "SELECT * FROM orders WHERE customer_id = 42 AND order_date = '2026-01-01'",
+                            "SELECT * FROM orders WHERE customer_id = 42 ORDER BY order_date DESC",
                         ]
                     },
-                    "solution": {"answer": 1},
+                    "solution": {"answer": 0},
                 },
                 {
-                    "kind": "multi",
-                    "difficulty": "hard",
-                    "title": "Index-defeating predicates",
-                    "prompt": "Assume a plain B-tree index on `users(email)` and `users(created_at)`. Which predicates **cannot** use those indexes?",
-                    "hint": "Anything that wraps the column or starts with a wildcard.",
-                    "explanation": "Wrapping the column in a function and a leading `%` both destroy the sorted-prefix property the B-tree relies on. A range on `created_at` and a prefix `LIKE` both use it fine.",
-                    "xp": 40,
+                    "kind": "mcq",
+                    "difficulty": "easy",
+                    "title": "Index Write Cost",
+                    "prompt": "What is the primary operational trade-off of adding multiple indexes to a database table?",
+                    "hint": "What happens when a new row is added?",
+                    "explanation": "Indexes speed up read queries, but slow down writes (INSERT, UPDATE, DELETE) and consume extra disk space.",
+                    "xp": 20,
                     "config": {
                         "options": [
-                            "WHERE lower(email) = 'a@b.com'",
-                            "WHERE email LIKE '%@gmail.com'",
-                            "WHERE created_at >= '2024-01-01'",
-                            "WHERE email LIKE 'admin%'",
+                            "Faster reads, but slower write operations and extra disk usage",
+                            "Faster writes, but slower read operations",
+                            "Database connections get capped at 10",
+                            "All text columns become case-insensitive",
                         ]
                     },
-                    "solution": {"answers": [0, 1]},
+                    "solution": {"answer": 0},
                 },
                 {
                     "kind": "short",
-                    "difficulty": "medium",
-                    "title": "The plan node you don't want",
-                    "prompt": "In `EXPLAIN ANALYZE`, which node type on a large table, combined with a highly selective WHERE clause, is the classic sign of a missing index? (Two words.)",
-                    "hint": "It reads every row.",
-                    "explanation": "A `Seq Scan` reads the whole table. Selective filter + big table + Seq Scan = add an index (or check why the planner distrusts the one you have).",
-                    "xp": 25,
-                    "config": {"placeholder": "a plan node"},
-                    "solution": {"regex": True, "accept": [r"seq(uential)?\s*scan", r"seqscan", r"full\s+table\s+scan"]},
+                    "difficulty": "easy",
+                    "title": "Query Plan Command",
+                    "prompt": "What SQL command keyword is placed before a query to inspect the database query planner's execution steps?",
+                    "hint": "EXPLAIN ...",
+                    "explanation": "EXPLAIN (or EXPLAIN ANALYZE) shows the execution plan.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. EXPLAIN"},
+                    "solution": {"regex": True, "accept": [r"explain(\s+analyze)?", r"EXPLAIN(\s+ANALYZE)?"]},
                 },
                 {
                     "kind": "code",
                     "difficulty": "medium",
-                    "title": "Would this index be used?",
-                    "prompt": "Write `covers(index_cols, equality_cols, sort_col)` returning `True` if a B-tree index on `index_cols` (a list, in order) can satisfy a query that filters on **all** of `equality_cols` (a set-like list) and then sorts by `sort_col`.\n\nRule: the index works when its leading columns are exactly the equality columns (in any order among themselves) and the very next index column is `sort_col`. `sort_col` may be `None`, meaning no sort is needed.\n\n```\ncovers(['tenant_id','created_at'], ['tenant_id'], 'created_at') -> True\ncovers(['created_at','tenant_id'], ['tenant_id'], 'created_at') -> False\n```",
-                    "hint": "Compare the first `len(equality_cols)` index columns as a set, then check position `len(equality_cols)`.",
-                    "explanation": "This encodes the left-to-right prefix rule. It is exactly the check to run in your head before adding an index — most 'unused index' incidents are a violated prefix.",
-                    "xp": 50,
-                    "config": {"language": "python", "starter": "def covers(index_cols, equality_cols, sort_col):\n    ...\n"},
+                    "title": "Check Leftmost Prefix Compatibility",
+                    "prompt": "Write `can_use_index(index_cols, query_cols)` that returns `True` if a query can efficiently utilize a composite index, according to the leftmost prefix rule.\n\n`index_cols` and `query_cols` are lists of column name strings.\nThe index is usable if `query_cols` contains the first column `index_cols[0]`.\n\n```python\ncan_use_index([\"org_id\", \"created_at\"], [\"org_id\"]) -> True\ncan_use_index([\"org_id\", \"created_at\"], [\"org_id\", \"created_at\"]) -> True\ncan_use_index([\"org_id\", \"created_at\"], [\"created_at\"]) -> False\ncan_use_index([\"a\", \"b\", \"c\"], [\"b\", \"c\"]) -> False\n```",
+                    "hint": "Check if `len(index_cols) > 0` and `index_cols[0] in query_cols`.",
+                    "explanation": "A composite index requires the leading leftmost column to be present in filter predicates.",
+                    "xp": 40,
+                    "config": {
+                        "language": "python",
+                        "starter": "def can_use_index(index_cols, query_cols):\n    # Return True if index can be used by query_cols\n    ...\n",
+                    },
                     "solution": {
-                        "entrypoint": "covers",
+                        "entrypoint": "can_use_index",
                         "cases": [
-                            {"args": [["tenant_id", "created_at"], ["tenant_id"], "created_at"], "expect": True},
-                            {"args": [["created_at", "tenant_id"], ["tenant_id"], "created_at"], "expect": False},
-                            {"args": [["a", "b", "c"], ["b", "a"], "c"], "expect": True},
-                            {"args": [["a"], ["a"], None], "expect": True},
-                            {"args": [["a", "b"], ["a"], None], "expect": True},
-                            {"args": [["a", "b"], ["a", "b", "c"], None], "expect": False, "hidden": True},
+                            {"args": [["org_id", "created_at"], ["org_id"]], "expect": True},
+                            {"args": [["org_id", "created_at"], ["org_id", "created_at"]], "expect": True},
+                            {"args": [["org_id", "created_at"], ["created_at"]], "expect": False},
+                            {"args": [["a", "b", "c"], ["b", "c"]], "expect": False},
+                            {"args": [[], ["x"]], "expect": False, "hidden": True},
                         ],
                     },
                 },
             ],
         },
+
+        # =========================================================================
+        # LEVEL 5: TRANSACTIONS, ACID & CONCURRENCY
+        # =========================================================================
         {
-            "index": 3,
-            "title": "Transactions, isolation, and N+1",
-            "summary": "ACID in practice, the anomalies, and the query pattern that kills endpoints.",
-            "xp_reward": 120,
+            "index": 5,
+            "title": "Transactions, ACID & Concurrency",
+            "summary": "The bank transfer dilemma, ACID properties, isolation anomalies, and locking with SELECT FOR UPDATE.",
+            "xp_reward": 125,
             "lessons": [
                 {
-                    "title": "Isolation levels and the anomalies they stop",
+                    "title": "The Bank Transfer Dilemma & ACID",
                     "minutes": 7,
-                    "body": """ACID: **A**tomic (all or nothing), **C**onsistent (constraints hold), **I**solated (concurrent transactions don't corrupt each other), **D**urable (committed means survived).
+                    "body": """Imagine transferring $100 from Alice to Bob:
+1. Deduct $100 from Alice (`UPDATE accounts SET balance = balance - 100 WHERE id = 1`)
+2. Credit $100 to Bob (`UPDATE accounts SET balance = balance + 100 WHERE id = 2`)
 
-Isolation is the one with knobs:
+What if the server crashes or loses power between step 1 and step 2? $100 has vanished into thin air!
 
-| Level | Dirty read | Non-repeatable read | Phantom | Write skew |
-| --- | --- | --- | --- | --- |
-| Read Committed *(Postgres default)* | no | **yes** | **yes** | **yes** |
-| Repeatable Read | no | no | no* | **yes** |
-| Serializable | no | no | no | no |
+### The ACID Guarantees
+To prevent this, databases provide **Transactions**:
+- **Atomicity (All-or-Nothing)**: Either all operations in the transaction succeed, or the entire transaction is rolled back as if nothing ever happened.
+- **Consistency**: The database transitions from one valid state to another, never violating constraints.
+- **Isolation**: Concurrent transactions running at the same time cannot see uncommitted changes from each other.
+- **Durability**: Once a transaction is committed, its changes survive crashes and power outages.
 
-\\* Postgres's Repeatable Read uses snapshots, so it avoids phantoms too — but not write skew.
-
-**Write skew**, the one that bites: two transactions each read "there are 2 doctors on call", each decide it's safe for their doctor to go off call, and both commit. Neither saw a conflicting *write* — they read overlapping data and wrote disjoint rows.
-
-Fixes, in ascending cost: `SELECT ... FOR UPDATE` on the rows you're deciding from; a database constraint that makes the bad state unrepresentable; or `SERIALIZABLE` (and code that retries on serialization failure).
-
-**Keep transactions short.** Never hold one open across an HTTP call to a third party — you're holding locks for the length of someone else's outage.""",
+```sql
+BEGIN;
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+COMMIT;
+```""",
                 },
                 {
-                    "title": "N+1: the endpoint killer",
+                    "title": "Isolation Anomalies & Row-Level Locking",
                     "minutes": 6,
-                    "body": """```python
-for post in Post.objects.all():        # 1 query
-    print(post.author.name)            # + 1 query per post
-```
+                    "body": """When hundreds of users access the database simultaneously:
+- **Dirty Read**: Reading uncommitted data that might be rolled back.
+- **Non-Repeatable Read**: Re-reading a row in the same transaction and seeing different data because another transaction modified it.
+- **Lost Update (Race Condition)**: Two users read balance `$100`, both deduct `$20`, and both write `$80`. The balance should be `$60`!
 
-100 posts → 101 round trips. Each is maybe 0.5 ms of query and 1 ms of network. The endpoint is now slower than the sum of its work, and it degrades linearly with data.
+### Pessimistic Locking with SELECT FOR UPDATE
+To safely modify a balance, lock the specific row until your transaction completes:
 
-The fix in Django:
-
-```python
-Post.objects.select_related("author")            # SQL JOIN, for FK / one-to-one
-Post.objects.prefetch_related("tags")            # 2nd query + join in Python, for M2M / reverse FK
-```
-
-How to catch it before production:
-
-- Assert query counts in tests: `with self.assertNumQueries(2):`
-- Log queries in dev (`django-debug-toolbar`, or `CONN_HEALTH_CHECKS` + query logging) and watch the count per request.
-- Alarm on requests exceeding a query-count budget.
-
-The same trap exists in every ORM and in GraphQL resolvers, where it's solved with a DataLoader that batches per tick.""",
+```sql
+BEGIN;
+SELECT balance FROM accounts WHERE id = 1 FOR UPDATE;
+-- Other transactions trying to read FOR UPDATE on id 1 will block and wait!
+UPDATE accounts SET balance = balance - 100 WHERE id = 1;
+COMMIT;
+```""",
                 },
             ],
             "challenges": [
                 {
                     "kind": "mcq",
-                    "difficulty": "hard",
-                    "title": "Two doctors, one shift",
-                    "prompt": "Two transactions each check `SELECT count(*) FROM oncall WHERE on_call = true` (it returns 2), then each sets a *different* doctor to off-call. Both commit. Now nobody is on call.\n\nWhat is this anomaly called?",
-                    "hint": "They read overlapping rows but wrote different ones.",
-                    "explanation": "Write skew. No row was written twice, so Read Committed and even snapshot-based Repeatable Read allow it. `SELECT ... FOR UPDATE`, a constraint, or SERIALIZABLE prevents it.",
-                    "xp": 40,
-                    "config": {"options": ["Dirty read", "Phantom read", "Write skew", "Lost update"]},
-                    "solution": {"answer": 2},
-                },
-                {
-                    "kind": "mcq",
-                    "difficulty": "medium",
-                    "title": "Pick the prefetch",
-                    "prompt": "`Post` has a ForeignKey to `Author` and a ManyToMany to `Tag`. You render 50 posts with the author name and all tags.\n\nWhat is the minimal fix?",
-                    "hint": "One of these is a JOIN; the other needs a second query.",
-                    "explanation": "`select_related` JOINs single-valued relations (FK, one-to-one). Many-to-many can't be JOINed without row multiplication, so `prefetch_related` issues one extra query and stitches in Python. Three queries total instead of 101.",
-                    "xp": 30,
+                    "difficulty": "easy",
+                    "title": "Atomicity Guarantee",
+                    "prompt": "A transaction contains 5 UPDATE statements. The 4th statement fails with a syntax error. What does the Atomicity property guarantee?",
+                    "hint": "All or nothing.",
+                    "explanation": "Atomicity guarantees that all changes are rolled back, leaving the database exactly as it was before the transaction started.",
+                    "xp": 20,
                     "config": {
                         "options": [
-                            "select_related('author', 'tags')",
-                            "prefetch_related('author', 'tags')",
-                            "select_related('author').prefetch_related('tags')",
-                            "Add an index on post.author_id",
+                            "All changes are rolled back completely",
+                            "The first 3 updates remain saved in the database",
+                            "The database automatically retries the 4th statement 10 times",
+                            "The table is deleted",
                         ]
                     },
-                    "solution": {"answer": 2},
+                    "solution": {"answer": 0},
                 },
                 {
                     "kind": "short",
+                    "difficulty": "easy",
+                    "title": "Transaction Abort Command",
+                    "prompt": "What SQL command cancels an ongoing transaction and discards all modifications made within it?",
+                    "hint": "ROLL...",
+                    "explanation": "ROLLBACK reverts all changes in the current transaction.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. ROLLBACK"},
+                    "solution": {"regex": True, "accept": [r"rollback", r"ROLLBACK"]},
+                },
+                {
+                    "kind": "multi",
                     "difficulty": "medium",
-                    "title": "Lock the rows you decided from",
-                    "prompt": "Which SQL clause do you append to a SELECT to take a row-level write lock, so a concurrent transaction must wait before modifying those rows?",
-                    "hint": "Three words after SELECT ... .",
-                    "explanation": "`FOR UPDATE` locks the selected rows until the transaction ends. It's the cheapest reliable fix for read-then-write races such as inventory decrements.",
+                    "title": "Consequences of Missing Transactions",
+                    "prompt": "Which problems can happen if multi-step financial operations are run without database transactions?",
+                    "hint": "Think about network timeouts, power loss, and parallel requests.",
+                    "explanation": "Without transactions, crashes cause partial updates, and concurrent requests cause race conditions and lost updates.",
                     "xp": 25,
-                    "config": {"placeholder": "SQL clause"},
-                    "solution": {"regex": True, "accept": [r"(select\s+.*\s+)?for\s+update(\s+nowait|\s+skip\s+locked)?"]},
+                    "config": {
+                        "options": [
+                            "Partial state updates if a crash happens midway",
+                            "Lost updates due to concurrent race conditions",
+                            "Money created or destroyed between accounts",
+                            "The database server uninstalls itself",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 2]},
                 },
                 {
                     "kind": "code",
-                    "difficulty": "hard",
-                    "title": "Count the queries",
-                    "prompt": "Write `query_count(n_posts, strategy)` returning how many SQL queries a listing of `n_posts` posts issues, where each post shows its author (FK) and its tags (M2M).\n\n- `\"naive\"` → 1 + 2 per post\n- `\"select_related\"` → 1 (join for author) + 1 per post (tags)\n- `\"optimized\"` → 2 total (join for author + one prefetch for tags), regardless of n\n\nAny other strategy returns `-1`. `n_posts` of 0 still costs the base queries.",
-                    "hint": "Just encode the three formulas.",
-                    "explanation": "Turning the N+1 discussion into arithmetic makes the cost obvious: at 50 posts naive is 101 queries, optimised is 2 — and the optimised number does not move as data grows.",
+                    "difficulty": "medium",
+                    "title": "Atomic Account Transfer Simulation",
+                    "prompt": "Write `atomic_transfer(accounts, from_id, to_id, amount)` that simulates an atomic bank transfer.\n`accounts` is a dict `{account_id: balance}`.\n\nRules:\n1. Both `from_id` and `to_id` must exist in `accounts`.\n2. `amount` must be `> 0`.\n3. `accounts[from_id]` must be `>= amount`.\n4. If all checks pass: deduct `amount` from `from_id`, add `amount` to `to_id`, and return `True`.\n5. If any check fails: **make no modifications** to `accounts` and return `False`.\n\n```python\naccs = {1: 100, 2: 50}\natomic_transfer(accs, 1, 2, 30) -> True   # accs is now {1: 70, 2: 80}\natomic_transfer(accs, 1, 2, 200) -> False  # Insufficient funds, accs unchanged\n```",
+                    "hint": "Perform all validation checks BEFORE modifying any balances.",
+                    "explanation": "Simulating all-or-nothing execution ensures consistency even during failures.",
                     "xp": 45,
-                    "config": {"language": "python", "starter": "def query_count(n_posts, strategy):\n    ...\n"},
+                    "config": {
+                        "language": "python",
+                        "starter": "def atomic_transfer(accounts, from_id, to_id, amount):\n    # Atomically transfer amount or return False\n    ...\n",
+                    },
                     "solution": {
-                        "entrypoint": "query_count",
+                        "entrypoint": "atomic_transfer",
                         "cases": [
-                            {"args": [50, "naive"], "expect": 101},
-                            {"args": [50, "select_related"], "expect": 51},
-                            {"args": [50, "optimized"], "expect": 2},
-                            {"args": [0, "naive"], "expect": 1},
-                            {"args": [0, "optimized"], "expect": 2},
-                            {"args": [10, "magic"], "expect": -1, "hidden": True},
+                            {"args": [{1: 100, 2: 50}, 1, 2, 30], "expect": True},
+                            {"args": [{1: 100, 2: 50}, 1, 2, 200], "expect": False},
+                            {"args": [{1: 100}, 1, 99, 50], "expect": False},
+                            {"args": [{1: 100, 2: 50}, 1, 2, -10], "expect": False},
+                            {"args": [{1: 50, 2: 50}, 1, 2, 50], "expect": True, "hidden": True},
                         ],
                     },
                 },

@@ -26,6 +26,8 @@ class SubmitView(APIView):
             return Response({"detail": "This level is locked."}, status=403)
 
         submission = request.data if isinstance(request.data, dict) else {}
+        if "submission" in submission and isinstance(submission["submission"], dict):
+            submission = submission["submission"]
         correct, detail = grade(challenge, submission)
         result = record_submission(request.user, challenge, submission, correct, detail)
         if correct:

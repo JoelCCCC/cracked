@@ -1,227 +1,123 @@
 TRACK = {
     "slug": "web",
     "name": "Web Development",
-    "tagline": "HTTP, rendering strategies, and state that doesn't fight you.",
+    "tagline": "How the modern web actually works: HTTP, DOM, APIs, rendering, and security.",
     "description": (
-        "How the browser and the server actually talk, where to render, how to keep "
-        "client state honest, and the performance and security basics every web engineer "
-        "is expected to know cold."
+        "Start from absolute zero. Learn how the browser and server communicate over HTTP, "
+        "how the DOM renders, how to design clean REST APIs, modern Next.js rendering strategies, and web security."
     ),
     "icon": "◍",
     "accent": "#ff7a45",
     "order": 3,
-    "required_xp": 900,
+    "required_xp": 450,
     "levels": [
+        # =========================================================================
+        # LEVEL 1: HOW THE WEB WORKS & HTTP
+        # =========================================================================
         {
             "index": 1,
-            "title": "HTTP and the request lifecycle",
-            "summary": "Methods, status codes, caching headers, and why idempotency matters.",
-            "xp_reward": 90,
+            "title": "Web Foundations & The HTTP Protocol",
+            "summary": "DNS resolution, TCP/TLS handshakes, HTTP request/response anatomy, and status codes.",
+            "xp_reward": 85,
             "lessons": [
                 {
-                    "title": "Status codes and methods, used correctly",
+                    "title": "How the Web Works: From URL to Screen",
                     "minutes": 6,
-                    "body": """The web is a contract. Break it and proxies, browsers and clients misbehave in ways you cannot patch.
+                    "body": """What actually happens in the 50 milliseconds after you enter a URL or click a link?
 
-**Methods**
+### 1. DNS Resolution (The Internet's Phonebook)
+Computers communicate using numerical IP addresses (such as `142.250.190.46`), not friendly domain names.
+Your computer first queries a **Domain Name System (DNS)** server:
+`api.example.com` $\\rightarrow$ `93.184.216.34`.
 
-| Method | Safe | Idempotent | Meaning |
-| --- | --- | --- | --- |
-| GET | yes | yes | read, cacheable, never mutate |
-| POST | no | no | create / arbitrary action |
-| PUT | no | yes | replace at a known URL |
-| PATCH | no | no | partial update |
-| DELETE | no | yes | remove |
+### 2. The TCP & TLS Handshake
+Before sending web traffic, your browser establishes a secure connection:
+- **TCP 3-Way Handshake**: `SYN` (client asks to connect) $\\rightarrow$ `SYN-ACK` (server agrees) $\\rightarrow$ `ACK` (connection established).
+- **TLS Handshake**: In `https://`, client and server exchange certificates and agree on a cryptographic session key so eavesdroppers cannot read passwords or credit card data.
 
-*Idempotent* means the client can retry safely — the reason a flaky network is survivable at all. `POST /charge` retried twice charges twice; that's why payment APIs take an idempotency key.
+### 3. The HTTP Request Anatomy
+HTTP is a plaintext, stateless request/response protocol:
 
-**Status codes that matter**
+```http
+POST /api/v1/orders HTTP/1.1
+Host: api.example.com
+User-Agent: Mozilla/5.0
+Content-Type: application/json
+Authorization: Bearer eyJhbGci...
 
-- `200` ok · `201` created (send `Location`) · `204` no content
-- `301` permanent (cached hard — be careful) · `302`/`307` temporary · `304` not modified
-- `400` malformed · `401` not authenticated · `403` authenticated but not allowed · `404` missing · `409` conflict · `422` semantically invalid · `429` rate limited
-- `500` you broke it · `502`/`503`/`504` upstream broke it
+{"item_id": 42, "quantity": 1}
+```
 
-The 401 vs 403 distinction gets asked in interviews constantly: **401 = who are you, 403 = I know who you are and no**.""",
+Every request contains:
+1. **Start Line**: Method (`POST`), Path (`/api/v1/orders`), Protocol (`HTTP/1.1`).
+2. **Headers**: Key-value metadata (auth tokens, content formats).
+3. **Blank Line**: Mandatory delimiter separating headers from body.
+4. **Body**: The payload (JSON, form data, or binary).""",
                 },
                 {
-                    "title": "Caching without lying to users",
+                    "title": "HTTP Methods & Status Codes Used Correctly",
                     "minutes": 6,
-                    "body": """Two independent questions: *may this be reused* and *is my copy still fresh*.
+                    "body": """HTTP defines clear semantic contracts for verbs and responses.
 
-```
-Cache-Control: public, max-age=31536000, immutable   # hashed asset
-Cache-Control: private, no-cache                     # HTML: revalidate every time
-Cache-Control: no-store                              # never touch this (auth pages)
-ETag: "a1b2c3"                                       # cheap revalidation -> 304
-```
+### HTTP Methods & Idempotency
+An operation is **idempotent** if applying it multiple times produces the exact same server state as applying it once.
 
-The pattern that makes fast sites:
+| Method | Safe | Idempotent | Purpose |
+| :--- | :--- | :--- | :--- |
+| **GET** | Yes | Yes | Retrieve a resource. Must NEVER mutate state. |
+| **POST** | No | No | Create a new resource or execute an arbitrary action. |
+| **PUT** | No | Yes | Replace the resource at the given URL completely. |
+| **PATCH** | No | No | Partially update specific fields on a resource. |
+| **DELETE** | No | Yes | Delete the resource at the given URL. |
 
-1. **Fingerprint** static assets (`app.4f2c.js`) and cache them for a year, `immutable`.
-2. Serve **HTML with `no-cache`** so a deploy is visible immediately.
-3. Let the HTML point at the new fingerprints. Nothing is ever stale, nothing is re-downloaded.
+> [!NOTE]
+> Why does idempotency matter? If a user clicks "Submit Order" and the Wi-Fi blinks, a retried `POST` might charge them twice! That's why payment APIs require an *idempotency key*.
 
-`no-cache` does **not** mean "don't cache" — it means "cache it, but revalidate before use". The one that means don't store is `no-store`. Getting these backwards is how private data ends up in a CDN.""",
+### The Status Code Families
+- **2xx Success**: `200 OK`, `201 Created` (returns new URL in `Location`), `204 No Content`
+- **3xx Redirection**: `301 Moved Permanently` (browser caches aggressively), `304 Not Modified`
+- **4xx Client Error**:
+  - `400 Bad Request`: Malformed syntax or JSON.
+  - `401 Unauthorized`: **Who are you?** (Missing or invalid auth credentials).
+  - `403 Forbidden`: **I know who you are, but you are not allowed.** (Authenticated, but insufficient permissions).
+  - `404 Not Found`: Resource doesn't exist.
+  - `429 Too Many Requests`: Rate limit hit.
+- **5xx Server Error**: `500 Internal Error`, `502 Bad Gateway`, `504 Gateway Timeout`.""",
                 },
             ],
             "challenges": [
                 {
                     "kind": "mcq",
                     "difficulty": "easy",
-                    "title": "401 or 403",
-                    "prompt": "A logged-in user with a valid session requests another user's invoice. What status should the API return?",
+                    "title": "401 vs 403 Distinction",
+                    "prompt": "A logged-in user with a valid session attempts to view another user's private medical record. What HTTP status code should the API return?",
                     "hint": "Do we know who they are?",
-                    "explanation": "They are authenticated, just not authorised: 403. Returning 401 would tell the client to re-authenticate, which will not help. (404 is a defensible alternative when you don't want to confirm the resource exists.)",
+                    "explanation": "The user is authenticated, but forbidden from accessing this specific record: 403 Forbidden. 401 would tell them to log in again.",
                     "xp": 20,
-                    "config": {"options": ["401 Unauthorized", "403 Forbidden", "400 Bad Request", "500 Internal Server Error"]},
+                    "config": {
+                        "options": [
+                            "401 Unauthorized",
+                            "403 Forbidden",
+                            "400 Bad Request",
+                            "500 Internal Server Error",
+                        ]
+                    },
                     "solution": {"answer": 1},
                 },
                 {
                     "kind": "multi",
                     "difficulty": "medium",
-                    "title": "Which are idempotent",
-                    "prompt": "Which of these requests can a client safely retry after a network timeout, without risking a duplicate side effect?",
-                    "hint": "Idempotent = same result whether applied once or five times.",
-                    "explanation": "GET is safe, PUT replaces the same resource, DELETE leaves it deleted. POST creating a new order is the one that duplicates — hence idempotency keys on payment APIs.",
-                    "xp": 30,
-                    "config": {
-                        "options": [
-                            "GET /orders/42",
-                            "PUT /orders/42 with the full body",
-                            "POST /orders creating a new order",
-                            "DELETE /orders/42",
-                        ]
-                    },
-                    "solution": {"answers": [0, 1, 3]},
-                },
-                {
-                    "kind": "short",
-                    "difficulty": "medium",
-                    "title": "Cache header for private HTML",
-                    "prompt": "Which `Cache-Control` directive tells caches to never write the response to disk at all — the one you want on a page showing someone's bank balance?",
-                    "hint": "It is not `no-cache`.",
-                    "explanation": "`no-store` forbids storing the response anywhere. `no-cache` still stores it and merely revalidates before reuse.",
+                    "title": "Idempotent HTTP Methods",
+                    "prompt": "Which of the following HTTP requests can a client safely retry multiple times without creating duplicate items on the server?",
+                    "hint": "Idempotent means f(f(x)) = f(x).",
+                    "explanation": "GET only reads, PUT replaces the existing resource at a fixed path, and DELETE removes it. POST creates new entries and is not idempotent.",
                     "xp": 25,
-                    "config": {"placeholder": "a Cache-Control directive"},
-                    "solution": {"regex": True, "accept": [r"no-?\s?store", r"cache-control:\s*no-?\s?store"]},
-                },
-                {
-                    "kind": "code",
-                    "difficulty": "medium",
-                    "title": "Classify a status code",
-                    "prompt": "Write and export `classify(code)` returning one of `\"success\"`, `\"redirect\"`, `\"client-error\"`, `\"server-error\"`, or `\"other\"` for any integer status code.\n\n2xx success · 3xx redirect · 4xx client-error · 5xx server-error · anything else other.\n\nExport it: `module.exports = { classify };`",
-                    "hint": "Integer-divide by 100 and switch on the result.",
-                    "explanation": "The status class is the first digit — which is exactly why the ranges are defined that way: an intermediary that doesn't know code 418 still knows it's a client error.",
-                    "xp": 35,
-                    "config": {
-                        "language": "javascript",
-                        "starter": "function classify(code) {\n  // your code here\n}\n\nmodule.exports = { classify };\n",
-                    },
-                    "solution": {
-                        "entrypoint": "classify",
-                        "cases": [
-                            {"args": [200], "expect": "success"},
-                            {"args": [204], "expect": "success"},
-                            {"args": [301], "expect": "redirect"},
-                            {"args": [404], "expect": "client-error"},
-                            {"args": [503], "expect": "server-error"},
-                            {"args": [100], "expect": "other"},
-                            {"args": [0], "expect": "other", "hidden": True},
-                        ],
-                    },
-                },
-            ],
-        },
-        {
-            "index": 2,
-            "title": "Rendering strategies",
-            "summary": "CSR, SSR, SSG, ISR, streaming — and which one your page actually needs.",
-            "xp_reward": 100,
-            "lessons": [
-                {
-                    "title": "Where the HTML comes from",
-                    "minutes": 7,
-                    "body": """Every strategy answers one question: *when does the HTML get built?*
-
-| Strategy | Built | Best for | Cost |
-| --- | --- | --- | --- |
-| **CSR** | in the browser after JS loads | app dashboards behind login | blank first paint, bad SEO |
-| **SSR** | per request on the server | personalised, always-fresh pages | server time on every hit |
-| **SSG** | at build time | marketing, docs, blogs | rebuild to change |
-| **ISR** | at build, refreshed in the background | big catalogues that change slowly | slightly stale window |
-| **Streaming SSR** | per request, sent in chunks | pages with one slow section | more complex |
-
-In the Next.js App Router these are per-route (and per-component) choices, not per-app:
-
-```tsx
-// server component: runs on the server, no JS shipped for it
-export default async function Page() {
-  const data = await getData();       // no useEffect, no loading flash
-  return <Chart data={data} />;
-}
-
-export const revalidate = 60;         // ISR: rebuild at most once a minute
-```
-
-**Default to server components.** Add `"use client"` only where you need state, effects, or event handlers — every client component is JavaScript the user has to download.""",
-                },
-                {
-                    "title": "Client state that stays honest",
-                    "minutes": 6,
-                    "body": """Most React bugs are one mistake: **storing derived data in state**.
-
-```tsx
-// wrong: two sources of truth, guaranteed to drift
-const [items, setItems] = useState([]);
-const [count, setCount] = useState(0);
-
-// right: derive it
-const count = items.length;
-```
-
-Sort state into three buckets:
-
-- **Server state** — anything the API owns. It needs caching, revalidation and staleness handling. Use a data library (React Query, SWR, or the framework's own fetching). Do not hand-roll it in `useEffect`.
-- **URL state** — filters, tabs, pagination, the open item. Put it in the query string so links and the back button work.
-- **UI state** — is this dropdown open. `useState`, as local as possible.
-
-`useEffect` is for **synchronising with something outside React** (a subscription, a DOM measurement, a timer). Fetching in an effect on mount is the pattern that gives you race conditions, double-fetches in StrictMode, and loading flashes.""",
-                },
-            ],
-            "challenges": [
-                {
-                    "kind": "mcq",
-                    "difficulty": "medium",
-                    "title": "Pick the rendering strategy",
-                    "prompt": "A 40,000-page product catalogue. Prices change a few times a day. SEO is critical and traffic is heavy.\n\nWhat fits best?",
-                    "hint": "Full rebuilds are too slow; per-request rendering is wasteful at this traffic.",
-                    "explanation": "ISR serves cached HTML (fast, indexable) and refreshes pages in the background on an interval, so you neither rebuild 40k pages nor render on every request.",
-                    "xp": 30,
                     "config": {
                         "options": [
-                            "Pure client-side rendering",
-                            "SSR on every request",
-                            "Static generation with incremental revalidation (ISR)",
-                            "Static generation, rebuilding the whole site on each price change",
-                        ]
-                    },
-                    "solution": {"answer": 2},
-                },
-                {
-                    "kind": "multi",
-                    "difficulty": "medium",
-                    "title": "Where does this state live?",
-                    "prompt": "Which of these belong in the **URL** rather than in React state?",
-                    "hint": "Ask: should a copy-pasted link reproduce this?",
-                    "explanation": "Anything a user would expect to survive a refresh, a share, or the back button belongs in the URL. Transient UI (a hover, an open dropdown) does not.",
-                    "xp": 30,
-                    "config": {
-                        "options": [
-                            "The active filter set on a search page",
-                            "The current page number",
-                            "Whether a tooltip is currently hovered",
-                            "The selected tab on a settings page",
+                            "GET /users/123",
+                            "PUT /users/123 with a full profile payload",
+                            "POST /orders creating a new checkout",
+                            "DELETE /users/123",
                         ]
                     },
                     "solution": {"answers": [0, 1, 3]},
@@ -229,21 +125,285 @@ Sort state into three buckets:
                 {
                     "kind": "short",
                     "difficulty": "easy",
-                    "title": "Opt into the client",
-                    "prompt": "Which directive do you put at the top of a Next.js App Router file to make it a client component?",
-                    "hint": "It is a string literal on the first line.",
-                    "explanation": "`\"use client\"` marks the module — and everything it imports — as part of the client bundle. Keep it as deep in the tree as possible.",
+                    "title": "Resource Created Status Code",
+                    "prompt": "Which 3-digit HTTP status code signifies that a request succeeded and led to the creation of a new resource?",
+                    "hint": "In the 2xx family.",
+                    "explanation": "201 Created is returned when a new resource has been successfully created.",
                     "xp": 20,
-                    "config": {"placeholder": "the directive"},
-                    "solution": {"regex": True, "accept": [r"[\"'`]?use\s+client[\"'`]?;?"]},
+                    "config": {"placeholder": "e.g. 200"},
+                    "solution": {"regex": True, "accept": [r"^201$"]},
                 },
                 {
                     "kind": "code",
                     "difficulty": "medium",
-                    "title": "Build a query string",
-                    "prompt": "Write and export `toQuery(params)` that turns an object into a query string, sorted by key for stable cache keys.\n\n- skip `null`, `undefined` and `\"\"` values\n- URL-encode keys and values\n- return `\"\"` for an empty result (no leading `?`)\n\n```\ntoQuery({ b: 2, a: 'x y', c: null }) -> \"a=x%20y&b=2\"\n```\n\nExport with `module.exports = { toQuery };`",
-                    "hint": "`Object.entries`, `filter`, `sort`, then `encodeURIComponent` both halves.",
-                    "explanation": "Sorting keys makes the string deterministic, which matters the moment you use it as a cache key or in a snapshot test. Note `encodeURIComponent` encodes a space as `%20`.",
+                    "title": "Classify HTTP Status Code",
+                    "prompt": "Write and export `classifyStatus(code)` returning:\n- `\"success\"` for 2xx codes (200-299)\n- `\"redirect\"` for 3xx codes (300-399)\n- `\"client-error\"` for 4xx codes (400-499)\n- `\"server-error\"` for 5xx codes (500-599)\n- `\"other\"` for any other integer\n\nExport it: `module.exports = { classifyStatus };`",
+                    "hint": "Integer divide by 100 or use numeric comparisons.",
+                    "explanation": "The status class is defined by the hundreds digit.",
+                    "xp": 35,
+                    "config": {
+                        "language": "javascript",
+                        "starter": "function classifyStatus(code) {\n  // your code here\n}\n\nmodule.exports = { classifyStatus };\n",
+                    },
+                    "solution": {
+                        "entrypoint": "classifyStatus",
+                        "cases": [
+                            {"args": [200], "expect": "success"},
+                            {"args": [204], "expect": "success"},
+                            {"args": [301], "expect": "redirect"},
+                            {"args": [404], "expect": "client-error"},
+                            {"args": [500], "expect": "server-error"},
+                            {"args": [100], "expect": "other"},
+                            {"args": [418], "expect": "client-error", "hidden": True},
+                        ],
+                    },
+                },
+            ],
+        },
+
+        # =========================================================================
+        # LEVEL 2: HTML & THE DOCUMENT OBJECT MODEL (DOM)
+        # =========================================================================
+        {
+            "index": 2,
+            "title": "HTML & The Document Object Model (DOM)",
+            "summary": "Semantic HTML, elements and attributes, the DOM tree, and manipulating pages with JavaScript.",
+            "xp_reward": 90,
+            "lessons": [
+                {
+                    "title": "HTML: The Skeleton of the Web",
+                    "minutes": 6,
+                    "body": """HTML (HyperText Markup Language) provides the structure and meaning of web content.
+
+### Anatomy of an HTML Element
+```html
+<button class="primary-btn" id="submit-btn" disabled>Submit Order</button>
+```
+- `<button ...>`: Opening tag.
+- `class` and `id`: **Attributes** providing metadata, styling hooks, and unique identifiers.
+- `disabled`: A **boolean attribute** (its mere presence means true).
+- `Submit Order`: The child text content.
+- `</button>`: Closing tag.
+
+### Why Semantic HTML Matters
+Using semantic tags (`<header>`, `<nav>`, `<main>`, `<article>`, `<button>`) instead of generic `<div>` tags:
+1. **Accessibility**: Screen readers can navigate landmarks easily.
+2. **Built-in Behavior**: `<button>` is accessible via the keyboard (`Tab` + `Enter`), while `<div onclick="...">` requires tedious manual keyboard handling.
+3. **SEO**: Search engine crawlers understand what content is primary.""",
+                },
+                {
+                    "title": "The DOM Tree & JavaScript Interactivity",
+                    "minutes": 6,
+                    "body": """When the browser downloads HTML text, it parses it into an in-memory tree of objects called the **DOM (Document Object Model)**.
+
+Every HTML tag becomes a DOM node:
+```
+Document
+ └── <html>
+      ├── <head>
+      └── <body>
+           ├── <header>
+           └── <main>
+                └── <button id="btn">Click me</button>
+```
+
+### Manipulating the DOM with JavaScript
+```javascript
+// 1. Find the element in the tree
+const button = document.querySelector('#btn');
+
+// 2. Modify its properties
+button.textContent = 'Processing...';
+
+// 3. Listen for user interactions
+button.addEventListener('click', (event) => {
+    console.log('Button clicked!');
+});
+```""",
+                },
+            ],
+            "challenges": [
+                {
+                    "kind": "mcq",
+                    "difficulty": "easy",
+                    "title": "The Document Object Model",
+                    "prompt": "What does the browser construct in memory when it finishes parsing an HTML document?",
+                    "hint": "Three-letter acronym representing an object tree.",
+                    "explanation": "The browser constructs the DOM (Document Object Model), allowing JavaScript to inspect and modify elements.",
+                    "xp": 20,
+                    "config": {
+                        "options": [
+                            "The DOM (Document Object Model)",
+                            "The DNS cache",
+                            "A SQL database",
+                            "A WebAssembly binary",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "short",
+                    "difficulty": "easy",
+                    "title": "CSS ID Selector Prefix",
+                    "prompt": "In CSS selectors and `document.querySelector`, what single character prefixes an ID attribute (e.g. for `<div id=\"app\">`)?",
+                    "hint": "The hash symbol.",
+                    "explanation": "The `#` symbol represents an ID selector, e.g. `#app`.",
+                    "xp": 20,
+                    "config": {"placeholder": "a symbol"},
+                    "solution": {"regex": True, "accept": [r"^#$"]},
+                },
+                {
+                    "kind": "multi",
+                    "difficulty": "medium",
+                    "title": "Standard DOM Events",
+                    "prompt": "Which of the following are built-in browser DOM events that can be listened to with `addEventListener`?",
+                    "hint": "Think about common mouse, keyboard, and form actions.",
+                    "explanation": "`click`, `submit`, and `keydown` are standard DOM events. `compile` is not a DOM event.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "click",
+                            "submit",
+                            "keydown",
+                            "compile",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 2]},
+                },
+                {
+                    "kind": "code",
+                    "difficulty": "medium",
+                    "title": "Count HTML Tags",
+                    "prompt": "Write and export `countTags(html, tag)` that counts how many times an opening tag `<tag` appears in an HTML string.\nCase-insensitive (`<p>` and `<P>` both count).\n\n```javascript\ncountTags('<p>Hello</p><p>World</p>', 'p') -> 2\ncountTags('<div><span></span></div>', 'span') -> 1\ncountTags('<h1>Title</h1>', 'div') -> 0\n```\n\nExport: `module.exports = { countTags };`",
+                    "hint": "Convert to lower case and use regex or string splitting on `<${tag.toLowerCase()}`.",
+                    "explanation": "Counting tag occurrences verifies element counts in markup templates.",
+                    "xp": 35,
+                    "config": {
+                        "language": "javascript",
+                        "starter": "function countTags(html, tag) {\n  // your code here\n}\n\nmodule.exports = { countTags };\n",
+                    },
+                    "solution": {
+                        "entrypoint": "countTags",
+                        "cases": [
+                            {"args": ["<p>Hello</p><p>World</p>", "p"], "expect": 2},
+                            {"args": ["<div><span></span></div>", "span"], "expect": 1},
+                            {"args": ["<h1>Title</h1>", "div"], "expect": 0},
+                            {"args": ["<P>Hi</P><p>There</p>", "p"], "expect": 2},
+                            {"args": ["", "div"], "expect": 0, "hidden": True},
+                        ],
+                    },
+                },
+            ],
+        },
+
+        # =========================================================================
+        # LEVEL 3: MODERN APIS: FETCH, JSON & REST
+        # =========================================================================
+        {
+            "index": 3,
+            "title": "Modern APIs: Fetch, JSON & REST",
+            "summary": "Asynchronous JavaScript, Promises, async/await, JSON interchange, and REST API design.",
+            "xp_reward": 100,
+            "lessons": [
+                {
+                    "title": "Asynchronous JavaScript: Promises & Async/Await",
+                    "minutes": 6,
+                    "body": """JavaScript is single-threaded. If network requests blocked execution, your browser would completely freeze until the server responded!
+
+### Promises and Async/Await
+A **Promise** represents a value that will become available in the future (pending $\\rightarrow$ resolved or rejected).
+The modern syntax is `async` / `await`:
+
+```javascript
+async function loadUserData(userId) {
+    try {
+        const response = await fetch(`https://api.example.com/users/${userId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP Error: ${response.status}`);
+        }
+        const user = await response.json();
+        return user;
+    } catch (err) {
+        console.error('Failed to load user:', err);
+    }
+}
+```
+
+### JSON (JavaScript Object Notation)
+JSON is the universal language of web APIs:
+- `JSON.stringify(object)`: Turns a JavaScript object into a JSON string payload.
+- `JSON.parse(string)`: Parses a JSON string into a live JavaScript object.""",
+                },
+                {
+                    "title": "REST API Design Principles",
+                    "minutes": 6,
+                    "body": """REST (Representational State Transfer) structures URLs around **resources (nouns)**, using HTTP methods for actions:
+
+- `GET /api/v1/articles` $\\rightarrow$ List articles
+- `POST /api/v1/articles` $\\rightarrow$ Create a new article
+- `GET /api/v1/articles/42` $\\rightarrow$ Retrieve article #42
+- `DELETE /api/v1/articles/42` $\\rightarrow$ Delete article #42
+
+### Query Strings vs Path Parameters
+- **Path parameters** (`/users/42`): Identify a specific unique resource.
+- **Query strings** (`/users?role=admin&sort=desc`): Filter, sort, or paginate collections.""",
+                },
+            ],
+            "challenges": [
+                {
+                    "kind": "mcq",
+                    "difficulty": "easy",
+                    "title": "JSON Serialization",
+                    "prompt": "Which built-in JavaScript method converts a live JavaScript object into a JSON string payload?",
+                    "hint": "Methods on the global JSON object.",
+                    "explanation": "JSON.stringify() serializes a JavaScript object into a JSON formatted string.",
+                    "xp": 20,
+                    "config": {
+                        "options": [
+                            "JSON.stringify()",
+                            "JSON.parse()",
+                            "Object.toJSON()",
+                            "fetch.serialize()",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "short",
+                    "difficulty": "easy",
+                    "title": "Parsing JSON",
+                    "prompt": "What built-in JavaScript method parses a raw JSON string back into a JavaScript object or array?",
+                    "hint": "JSON dot something.",
+                    "explanation": "JSON.parse() converts a JSON string into JavaScript data.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. JSON.parse"},
+                    "solution": {"regex": True, "accept": [r"JSON\.parse(\(\))?"]},
+                },
+                {
+                    "kind": "multi",
+                    "difficulty": "medium",
+                    "title": "Good REST API Conventions",
+                    "prompt": "Which of the following endpoint designs adhere to standard RESTful conventions?",
+                    "hint": "Nouns for resources, HTTP verbs for operations.",
+                    "explanation": "REST uses plural nouns for collections and verbs in the HTTP method, not `/deleteUser` in the URL.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "GET /api/products",
+                            "POST /api/products",
+                            "GET /api/deleteUser?id=42",
+                            "DELETE /api/products/42",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 3]},
+                },
+                {
+                    "kind": "code",
+                    "difficulty": "medium",
+                    "title": "Build a Deterministic Query String",
+                    "prompt": "Write and export `toQuery(params)` that turns an object into a sorted URL query string.\n- Ignore `null`, `undefined`, and empty string `\"\"` values\n- Keys must be sorted alphabetically for deterministic cache keys\n- URL-encode keys and values\n- Return `\"\"` if empty\n\n```javascript\ntoQuery({ b: 2, a: 'x y', c: null }) -> \"a=x%20y&b=2\"\n```\n\nExport: `module.exports = { toQuery };`",
+                    "hint": "Use Object.entries(), filter out null/undefined/empty, sort by key, and encode with encodeURIComponent.",
+                    "explanation": "Sorting query string keys makes cache keys deterministic.",
                     "xp": 45,
                     "config": {
                         "language": "javascript",
@@ -262,102 +422,226 @@ Sort state into three buckets:
                 },
             ],
         },
+
+        # =========================================================================
+        # LEVEL 4: RENDERING STRATEGIES & NEXT.JS
+        # =========================================================================
         {
-            "index": 3,
-            "title": "Performance and security basics",
-            "summary": "Core Web Vitals, bundle discipline, and the OWASP hits you must know.",
+            "index": 4,
+            "title": "Rendering Strategies & Next.js",
+            "summary": "CSR, SSR, SSG, ISR, React Server Components vs Client Components, and URL state discipline.",
             "xp_reward": 110,
             "lessons": [
                 {
-                    "title": "The three numbers users feel",
-                    "minutes": 6,
-                    "body": """Core Web Vitals are proxies for "does this site feel broken":
+                    "title": "Where HTML is Born: CSR, SSR, SSG & ISR",
+                    "minutes": 7,
+                    "body": """Every modern web architecture answers one central question: **When and where does the HTML get generated?**
 
-- **LCP** (Largest Contentful Paint) — when the main thing appears. Target **< 2.5s**. Usually fixed by preloading the hero image, sizing it properly, and not blocking on render-blocking CSS/JS.
-- **INP** (Interaction to Next Paint) — how long the UI takes to respond to a tap. Target **< 200ms**. Long main-thread tasks are the cause; break them up or move them off the thread.
-- **CLS** (Cumulative Layout Shift) — how much content jumps. Target **< 0.1**. Caused by images without `width`/`height`, injected banners, and late-loading fonts.
+| Strategy | When Built | Best For | Trade-offs |
+| :--- | :--- | :--- | :--- |
+| **CSR** (Client-Side Rendering) | In the browser after downloading JS | Private dashboards behind login | Blank initial paint, poor SEO |
+| **SSR** (Server-Side Rendering) | On the server for every single request | Personalised, real-time dynamic pages | Server compute cost on every hit |
+| **SSG** (Static Site Generation) | Once at build time | Marketing pages, documentation, blogs | Requires rebuild to update |
+| **ISR** (Incremental Static Revalidation) | At build time, revalidated in background | Huge product catalogues | Brief window of stale data |
 
-Cheap wins, in order of payoff:
-
-1. Ship less JavaScript. Nothing else comes close.
-2. Serve modern image formats at the size actually displayed.
-3. `font-display: swap` plus a preloaded font file.
-4. Reserve space for anything that loads late.""",
+In the Next.js App Router, these choices are made **per-route and per-component**, not per-app!""",
                 },
                 {
-                    "title": "XSS, CSRF, and where tokens live",
-                    "minutes": 7,
-                    "body": """**XSS** — attacker JavaScript runs on your origin. It happens when untrusted input reaches the page as markup. The fix is to escape on output (React does this by default) and to never reach for `dangerouslySetInnerHTML` without sanitising. A strict `Content-Security-Policy` is the seatbelt.
+                    "title": "React Server Components vs Client Components",
+                    "minutes": 6,
+                    "body": """In Next.js:
+- **Server Components (Default)**: Run exclusively on the server. They ship **0 KB of JavaScript** to the browser and can query databases directly without exposing credentials.
+- **Client Components (`\"use client\"`)**: Opt-in components that run in both browser and server. Required whenever you use `useState`, `useEffect`, or DOM event handlers (`onClick`).
 
-**CSRF** — the victim's browser is tricked into sending an authenticated request. It only works because cookies are attached automatically. Fixes: `SameSite=Lax` (or `Strict`) cookies plus a CSRF token on state-changing requests.
+### State Discipline
+Most frontend bugs stem from one mistake: **storing derived state**.
+```javascript
+// WRONG: Two sources of truth that will desynchronize
+const [items, setItems] = useState([]);
+const [count, setCount] = useState(0);
 
-**SQL injection** — string-concatenated queries. Parameterise, always. Django's ORM does this for you; `raw()` with an f-string does not.
-
-Where should the session token live?
-
-| Storage | XSS exposure | CSRF exposure |
-| --- | --- | --- |
-| `localStorage` | **readable by any injected script** | none |
-| `HttpOnly` cookie | not readable by JS | needs SameSite + token |
-
-The consensus for browser apps: **`HttpOnly; Secure; SameSite=Lax` cookies**. CSRF has a complete, well-understood mitigation; XSS token theft does not.""",
+// RIGHT: Compute it directly
+const count = items.length;
+```""",
                 },
             ],
             "challenges": [
                 {
                     "kind": "mcq",
                     "difficulty": "medium",
-                    "title": "Layout shift",
-                    "prompt": "Images pop in and push the article text down as the page loads. Which metric is bad, and what is the standard fix?",
-                    "hint": "Content is moving after paint.",
-                    "explanation": "That is CLS. Giving every image explicit `width`/`height` (or an aspect-ratio box) lets the browser reserve the space before the bytes arrive.",
-                    "xp": 25,
+                    "title": "Catalog Rendering Strategy",
+                    "prompt": "An online store has 50,000 product pages. Prices change a few times a day. Fast loading and SEO are critical.\n\nWhich rendering strategy is best?",
+                    "hint": "Full rebuilds take too long, but rendering on every request strains the server.",
+                    "explanation": "ISR (Incremental Static Regeneration) serves cached static HTML instantly and revalidates in the background on an interval.",
+                    "xp": 30,
                     "config": {
                         "options": [
-                            "LCP — preload the images",
-                            "CLS — set explicit width/height or aspect-ratio",
-                            "INP — debounce the scroll handler",
-                            "TTFB — move to a CDN",
+                            "Pure Client-Side Rendering (CSR)",
+                            "SSR on every request",
+                            "Incremental Static Regeneration (ISR)",
+                            "Manual rebuild on every price change",
                         ]
                     },
-                    "solution": {"answer": 1},
-                },
-                {
-                    "kind": "mcq",
-                    "difficulty": "hard",
-                    "title": "Token storage",
-                    "prompt": "Your SPA stores its session JWT in `localStorage`. A dependency ships a compromised version that injects a script.\n\nWhat is the direct consequence?",
-                    "hint": "What can any script on the origin read?",
-                    "explanation": "Any script on the origin can read `localStorage`, so the token is exfiltrated and the session is fully hijacked. An `HttpOnly` cookie is not readable by JavaScript at all.",
-                    "xp": 35,
-                    "config": {
-                        "options": [
-                            "Nothing — JWTs are signed, so they cannot be misused",
-                            "The script can read the token and impersonate the user",
-                            "Only a CSRF attack becomes possible",
-                            "The browser blocks cross-origin token reads automatically",
-                        ]
-                    },
-                    "solution": {"answer": 1},
+                    "solution": {"answer": 2},
                 },
                 {
                     "kind": "short",
+                    "difficulty": "easy",
+                    "title": "Next.js Client Directive",
+                    "prompt": "What directive string must be placed at the very top of a file to declare a Client Component in the Next.js App Router?",
+                    "hint": "Two words in quotes.",
+                    "explanation": "\"use client\" marks the component and its imports for inclusion in the client JS bundle.",
+                    "xp": 20,
+                    "config": {"placeholder": "e.g. \"use client\""},
+                    "solution": {"regex": True, "accept": [r"[\"'`]?use\s+client[\"'`]?;?"]},
+                },
+                {
+                    "kind": "multi",
                     "difficulty": "medium",
-                    "title": "Stop the cross-site cookie",
-                    "prompt": "Which cookie attribute stops the browser from attaching your session cookie to requests initiated by another site — the main structural defence against CSRF?",
-                    "hint": "Two words jammed together, with a value like Lax or Strict.",
-                    "explanation": "`SameSite` (Lax by default in modern browsers, Strict for the sensitive cases) prevents the cookie from riding along on cross-site requests.",
+                    "title": "Where State Belongs",
+                    "prompt": "Which of the following pieces of state should be stored in the **URL query string** rather than local React component state?",
+                    "hint": "Ask: should sharing or bookmarking the link preserve this state?",
+                    "explanation": "Search filters, pagination, and active tabs should live in the URL so links and the browser back button work as expected.",
                     "xp": 25,
-                    "config": {"placeholder": "a cookie attribute"},
-                    "solution": {"regex": True, "accept": [r"same\s*-?\s*site(\s*=\s*(lax|strict))?"]},
+                    "config": {
+                        "options": [
+                            "The active search filter and sort selection",
+                            "The current page number in a list",
+                            "Whether a dropdown menu is momentarily open",
+                            "The selected tab on a settings page",
+                        ]
+                    },
+                    "solution": {"answers": [0, 1, 3]},
                 },
                 {
                     "kind": "code",
                     "difficulty": "medium",
-                    "title": "Escape before you render",
-                    "prompt": "Write and export `escapeHtml(s)` that replaces `&`, `<`, `>`, `\"` and `'` with their HTML entities: `&amp;` `&lt;` `&gt;` `&quot;` `&#39;`.\n\nOrder matters — escape `&` first or you double-escape.\n\nExport with `module.exports = { escapeHtml };`",
-                    "hint": "One `replace` with a character-class regex and a lookup map handles ordering for you.",
-                    "explanation": "This is what a template engine does on every interpolation. Escaping `&` last would turn `&lt;` into `&amp;lt;` — hence the single-pass map.",
+                    "title": "Derive Order Summary Stats",
+                    "prompt": "Write and export `deriveStats(items)` that calculates summary statistics from an array of order items.\nEach item has `{ price: number, active: boolean }`.\n\nReturn an object:\n`{ totalCount: number, activeCount: number, totalPrice: number }`\n\n```javascript\nderiveStats([{ price: 10, active: true }, { price: 20, active: false }])\n// -> { totalCount: 2, activeCount: 1, totalPrice: 30 }\n```\n\nExport: `module.exports = { deriveStats };`",
+                    "hint": "Use array reduce or loop through items.",
+                    "explanation": "Deriving values directly prevents stale state bugs.",
+                    "xp": 40,
+                    "config": {
+                        "language": "javascript",
+                        "starter": "function deriveStats(items) {\n  // your code here\n}\n\nmodule.exports = { deriveStats };\n",
+                    },
+                    "solution": {
+                        "entrypoint": "deriveStats",
+                        "cases": [
+                            {
+                                "args": [[{"price": 10, "active": True}, {"price": 20, "active": False}]],
+                                "expect": {"totalCount": 2, "activeCount": 1, "totalPrice": 30},
+                            },
+                            {
+                                "args": [[]],
+                                "expect": {"totalCount": 0, "activeCount": 0, "totalPrice": 0},
+                            },
+                            {
+                                "args": [[{"price": 15.5, "active": True}]],
+                                "expect": {"totalCount": 1, "activeCount": 1, "totalPrice": 15.5},
+                            },
+                            {
+                                "args": [[{"price": 5, "active": True}, {"price": 5, "active": True}]],
+                                "expect": {"totalCount": 2, "activeCount": 2, "totalPrice": 10},
+                                "hidden": True,
+                            },
+                        ],
+                    },
+                },
+            ],
+        },
+
+        # =========================================================================
+        # LEVEL 5: WEB SECURITY & PERFORMANCE
+        # =========================================================================
+        {
+            "index": 5,
+            "title": "Web Security & Performance",
+            "summary": "Core Web Vitals, XSS sanitization, CSRF mitigation, HttpOnly cookies, and caching headers.",
+            "xp_reward": 120,
+            "lessons": [
+                {
+                    "title": "The Core Web Vitals That Matter",
+                    "minutes": 6,
+                    "body": """Google measures real user experience using three **Core Web Vitals**:
+
+- **LCP (Largest Contentful Paint)**: How fast the main content renders. Target: **< 2.5s**. Fix: Preload hero images, remove render-blocking JS.
+- **INP (Interaction to Next Paint)**: How quickly the UI responds to user clicks/taps. Target: **< 200ms**. Fix: Break up long JavaScript tasks.
+- **CLS (Cumulative Layout Shift)**: How much page elements jump around as resources load. Target: **< 0.1**. Fix: Always set explicit `width` and `height` attributes on images and videos.""",
+                },
+                {
+                    "title": "XSS, CSRF & Safe Token Storage",
+                    "minutes": 7,
+                    "body": """### 1. Cross-Site Scripting (XSS)
+Occurs when untrusted user input is rendered as HTML without escaping, letting an attacker run malicious JavaScript on your domain.
+- **Defense**: Always escape special HTML entities (`&`, `<`, `>`, `\"`, `'`). Modern React escapes strings automatically unless you bypass it with `dangerouslySetInnerHTML`.
+
+### 2. Cross-Site Request Forgery (CSRF)
+An attacker tricks a victim's browser into submitting an unauthorized request to a site where they are logged in.
+- **Defense**: Use `SameSite=Lax` or `Strict` cookies, and include an unpredictable CSRF token with state-changing requests.
+
+### 3. Where Should Auth Tokens Live?
+| Storage | XSS Vulnerability | Recommended? |
+| :--- | :--- | :--- |
+| `localStorage` | **High**: Any injected script can read and steal the token | No |
+| `HttpOnly; Secure; SameSite=Lax` Cookie | **Immune**: JavaScript cannot read HttpOnly cookies | **Yes** |""",
+                },
+            ],
+            "challenges": [
+                {
+                    "kind": "mcq",
+                    "difficulty": "medium",
+                    "title": "Layout Shift Prevention",
+                    "prompt": "Images pop into the page late, causing the text to violently jump downward. What metric is suffering, and what fixes it?",
+                    "hint": "CLS measures visual stability.",
+                    "explanation": "This is CLS (Cumulative Layout Shift). Providing explicit width and height allows the browser to reserve the exact layout space before image bytes arrive.",
+                    "xp": 25,
+                    "config": {
+                        "options": [
+                            "CLS — specify width and height or aspect-ratio boxes",
+                            "LCP — upgrade server CPU",
+                            "INP — debounce the scroll listener",
+                            "TTFB — install an SSL certificate",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "mcq",
+                    "difficulty": "hard",
+                    "title": "Token Storage Security",
+                    "prompt": "A web app stores its session JWT in `localStorage`. A compromised third-party npm package executes arbitrary script on the page.\n\nWhat is the direct risk?",
+                    "hint": "Can client-side JavaScript access localStorage?",
+                    "explanation": "Any script running on the page can access localStorage and exfiltrate the token to an attacker server. HttpOnly cookies cannot be read by JavaScript.",
+                    "xp": 35,
+                    "config": {
+                        "options": [
+                            "The script can read the JWT and hijack the user session",
+                            "Nothing, because JWTs are signed with a private key",
+                            "Only images can be read",
+                            "The browser automatically restricts localStorage access",
+                        ]
+                    },
+                    "solution": {"answer": 0},
+                },
+                {
+                    "kind": "short",
+                    "difficulty": "medium",
+                    "title": "Cache Header for Sensitive Data",
+                    "prompt": "Which Cache-Control directive instructs browsers and intermediary proxies to NEVER store the response in any cache or disk storage?",
+                    "hint": "Starts with 'no-'. Not 'no-cache'.",
+                    "explanation": "Cache-Control: no-store instructs caches to never write the response to disk.",
+                    "xp": 25,
+                    "config": {"placeholder": "e.g. no-store"},
+                    "solution": {"regex": True, "accept": [r"no-?\s?store", r"cache-control:\s*no-?\s?store"]},
+                },
+                {
+                    "kind": "code",
+                    "difficulty": "medium",
+                    "title": "Escape HTML Entities (XSS Defense)",
+                    "prompt": "Write and export `escapeHtml(s)` that replaces sensitive characters with HTML entities:\n- `&` $\\rightarrow$ `&amp;`\n- `<` $\\rightarrow$ `&lt;`\n- `>` $\\rightarrow$ `&gt;`\n- `\"` $\\rightarrow$ `&quot;`\n- `'` $\\rightarrow$ `&#39;`\n\n```javascript\nescapeHtml('<script>') -> \"&lt;script&gt;\"\nescapeHtml('a & b') -> \"a &amp; b\"\n```\n\nExport: `module.exports = { escapeHtml };`",
+                    "hint": "Use a regex character class or replace `&` first before replacing other characters.",
+                    "explanation": "Escaping special characters prevents browsers from executing user input as code.",
                     "xp": 40,
                     "config": {
                         "language": "javascript",
