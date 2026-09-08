@@ -9,7 +9,7 @@ load_dotenv(BASE_DIR / ".env")
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-insecure-change-me")
 DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
-ALLOWED_HOSTS = [h for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if h]
+ALLOWED_HOSTS = [h for h in os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,.vercel.app,*").split(",") if h]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -54,16 +54,33 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "cracked"),
-        "USER": os.getenv("POSTGRES_USER", "cracked"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "cracked"),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-        "PORT": os.getenv("POSTGRES_PORT", "5434"),
+db_url = os.getenv("DATABASE_URL") or os.getenv("POSTGRES_URL")
+if db_url:
+    import urllib.parse
+    parsed_url = urllib.parse.urlparse(db_url)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": parsed_url.path[1:] if parsed_url.path else "cracked",
+            "USER": parsed_url.username or "cracked",
+            "PASSWORD": parsed_url.password or "cracked",
+            "HOST": parsed_url.hostname or "localhost",
+            "PORT": str(parsed_url.port or 5432),
+        }
     }
-}
+    if "sslmode=require" in db_url or os.getenv("POSTGRES_SSL", "0") == "1":
+        DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.getenv("POSTGRES_DB", "cracked"),
+            "USER": os.getenv("POSTGRES_USER", "cracked"),
+            "PASSWORD": os.getenv("POSTGRES_PASSWORD", "cracked"),
+            "HOST": os.getenv("POSTGRES_HOST", "localhost"),
+            "PORT": os.getenv("POSTGRES_PORT", "5434"),
+        }
+    }
 
 AUTH_USER_MODEL = "accounts.User"
 
@@ -99,8 +116,17 @@ SIMPLE_JWT = {
     "ROTATE_REFRESH_TOKENS": True,
 }
 
+CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL", "1") == "1"
 CORS_ALLOWED_ORIGINS = [
-    o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()
+    o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000,http://127.0.0.1:3000").split(",") if o.strip()
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https://.*\.vercel\.app$",
+]
+CSRF_TRUSTED_ORIGINS = [
+    "https://*.vercel.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 
 ENABLE_CODE_RUNNER = os.getenv("ENABLE_CODE_RUNNER", "1") == "1"

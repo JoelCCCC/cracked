@@ -8,7 +8,8 @@ import {
 } from "@/types";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL ||
+  (typeof window !== "undefined" ? "" : "http://localhost:8000");
 
 const ACCESS_KEY = "cracked_access_token";
 const REFRESH_KEY = "cracked_refresh_token";
