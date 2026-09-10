@@ -94,13 +94,54 @@ export async function request<T>(
     try {
       errorData = await response.json();
     } catch {
-      // ignore
+      try {
+        const text = await response.text();
+        if (text) {
+          // If response is HTML or text, pick a brief preview
+          const cleanedText = text.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+          errorData = { detail: cleanedText.slice(0, 200) };
+        }
+      } catch {
+        // ignore
+      }
     }
-    const message =
-      errorData?.detail ||
-      errorData?.error ||
-      errorData?.non_field_errors?.[0] ||
-      `Request failed with status ${response.status}`;
+
+    let message = "";
+    if (errorData) {
+      if (typeof errorData === "string") {
+        message = errorData;
+      } else if (errorData.detail && typeof errorData.detail === "string") {
+        message = errorData.detail;
+      } else if (errorData.error && typeof errorData.error === "string") {
+        message = errorData.error;
+      } else if (Array.isArray(errorData.non_field_errors) && errorData.non_field_errors.length > 0) {
+        message = errorData.non_field_errors.join(", ");
+      } else if (Array.isArray(errorData)) {
+        message = errorData.map((e) => (typeof e === "string" ? e : JSON.stringify(e))).join(", ");
+      } else if (typeof errorData === "object") {
+        const fieldErrors = Object.entries(errorData)
+          .map(([field, errs]) => {
+            const fieldLabel = field.replace(/_/g, " ");
+            let errStr = "";
+            if (Array.isArray(errs)) {
+              errStr = errs.map((e) => (typeof e === "string" ? e : (e as any)?.message || JSON.stringify(e))).join(" ");
+            } else if (typeof errs === "object" && errs !== null) {
+              errStr = JSON.stringify(errs);
+            } else {
+              errStr = String(errs);
+            }
+            return `${fieldLabel}: ${errStr}`;
+          });
+        if (fieldErrors.length > 0) {
+          message = fieldErrors.join(" | ");
+        }
+      }
+    }
+
+    if (!message) {
+      message = `Request failed with status ${response.status}`;
+    }
+
     const err: any = new Error(message);
     err.status = response.status;
     err.data = errorData;

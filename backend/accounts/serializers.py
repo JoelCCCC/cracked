@@ -33,9 +33,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         fields = ("username", "email", "password", "display_name")
 
     def validate_username(self, value):
-        if User.objects.filter(username__iexact=value).exists():
+        val = value.strip()
+        if not val:
+            raise serializers.ValidationError("Username cannot be empty.")
+        if " " in val:
+            raise serializers.ValidationError("Username cannot contain spaces.")
+        if User.objects.filter(username__iexact=val).exists():
             raise serializers.ValidationError("That username is taken.")
-        return value
+        return val
 
     def create(self, validated_data):
         password = validated_data.pop("password")

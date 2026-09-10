@@ -34,17 +34,35 @@ function AuthForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername) {
+      setError("Please enter a username.");
+      return;
+    }
+
+    if (mode === "register") {
+      if (/\s/.test(trimmedUsername)) {
+        setError("Username cannot contain spaces.");
+        return;
+      }
+      if (password.length < 8) {
+        setError("Password must be at least 8 characters long.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
       if (mode === "login") {
-        await login(username, password);
+        await login(trimmedUsername, password);
       } else {
         await register({
-          username,
-          email,
+          username: trimmedUsername,
+          email: email.trim(),
           password,
-          display_name: displayName || undefined,
+          display_name: displayName.trim() || undefined,
         });
       }
       router.push("/dashboard");
@@ -214,9 +232,15 @@ function AuthForm() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
+                  minLength={mode === "register" ? 8 : undefined}
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-950 border border-slate-800 text-white placeholder-slate-600 focus:outline-none focus:border-purple-500 transition"
                 />
               </div>
+              {mode === "register" && (
+                <p className="text-[11px] text-slate-500 mt-1">
+                  At least 8 characters. Avoid common passwords like &quot;password&quot; or &quot;12345678&quot;.
+                </p>
+              )}
             </div>
 
             <button

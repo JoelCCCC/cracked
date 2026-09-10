@@ -11,6 +11,7 @@ urlpatterns = [
     path("api/healthz", health_check),
     path("admin/", admin.site.urls),
     path("api/auth/", include("accounts.urls")),
+    path("auth/", include("accounts.urls")),
     path("api/", include("curriculum.urls")),
     path("api/", include("progress.urls")),
     # Support /api/backend/ prefix for Vercel service rewrites
